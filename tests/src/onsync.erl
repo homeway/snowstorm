@@ -1,8 +1,9 @@
 %% -*- mode: nitrogen -*-
--module(main).
--export([onsync/0]).
+-module(onsync).
+-export([go/0]).
 
-onsync() ->
+go() ->
+    application:start(sync),
     application:start(snowstorm),
     application:start(sample),
     RunTests = fun(Mods) ->
