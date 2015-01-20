@@ -1,1 +1,1 @@
-erl -sync executable notification_center -pa 'ebin/'
+erl -sync executable notification_center -pa 'ebin/' -pa '../ebin'
