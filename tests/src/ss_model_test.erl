@@ -5,7 +5,7 @@
 
 %% 构造一个基于nosqlite的配置项模板
 base(Table, Model) ->
-    maps:merge(#{ '_handlers' => [{nosqlite, #{table=>Table} }] }, Model).
+    maps:merge(#{ nosqlite => [{table, Table}] }, Model).
 
 %% 定义示例模型(用户信息)
 user() ->
@@ -33,8 +33,8 @@ get_test() ->
 %% 2. 支持默认值
 value_test() ->
     User = ss_model:face(index, user()),
-    ?assertEqual(undefined, rico_model:value("account", User, undefined)),
-    ?assertEqual(<<"common">>, rico_model:value("type", User)).
+    ?assertEqual(undefined, ss_model:value("account", User, undefined)),
+    ?assertEqual(<<"common">>, ss_model:value("type", User)).
 
 %% 直接将模型中的值与变量比较
 equal_test() ->

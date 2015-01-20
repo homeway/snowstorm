@@ -7,9 +7,7 @@
 
 %% print model pretty
 % #{
-%   '_handlers' => [
-%     {nosqlite, #{table => user}}
-%   ],
+%   nosqlite => [table, user],
 %   index => [
 %     {"type", #{to_display => true,to_query => true,type => text,value => <<"common">>}},
 %     {"account", #{id => account,to_display => true,to_query => true,type => text}},
