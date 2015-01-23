@@ -10,8 +10,8 @@
 %%% Created : 24 Dec 2014 by homeway <homeway.xue@gmail.com>
 %%%-------------------------------------------------------------------
 -module(ss_nosqlite).
--export([init/1, from_model/1, to_model/1, create/2, update/2, patch/2, get/2, delete/2, search/3]).
--export([all/1]).
+-export([init/1, from_model/1, to_model/1, create/2, update/2, patch/2, get/2, get/3, delete/2, search/3]).
+-export([all/1, all/2]).
 
 %% 表初始化
 init(Table) ->
@@ -43,11 +43,12 @@ create(Table, M) ->
 
 %% 查看
 %% 直接返回所查到的maps类型，方便函数级联操作
-get(Table, Id) ->
+get(Table, Id) -> get(Table, Id, []).
+get(Table, Id, M) ->
     init(Table),
     [{_K, Result}|_] = dets:lookup(Table, Id),
     close(Table),
-    to_model(Result#{<<"_key">> => Id}).
+    to_model(Result#{<<"_key">> => Id}, M).
 
 %% 更新数据，返回ok | notfound
 update(Table, M) ->
@@ -99,7 +100,11 @@ search_acc(Table, K, Fun, Acc) ->
 
 %% 遍历所有数据
 all(Table) ->
-    search(Table, fun(_K) -> true end, []).
+    L = search(Table, fun(_K) -> true end, []),
+    [to_model(I) || I <- L].
+all(Table, M) ->
+    L = search(Table, fun(_K) -> true end, []),
+    [to_model(I, M) || I <- L].
 
 %% priv -------------------------------------------------
 from_model(M) ->
@@ -110,4 +115,10 @@ from_model(M) ->
 to_model(D) ->
     lists:map(fun({K, V}) ->
         {K, #{value => V}}
+    end, maps:to_list(D)).
+to_model(D, M1) ->
+    M = [{ss:to_binary(K), V} || {K, V} <- M1],
+    lists:map(fun({K, V}) ->
+        Field = proplists:get_value(K, M, #{}),
+        {K, Field#{value => V}}
     end, maps:to_list(D)).

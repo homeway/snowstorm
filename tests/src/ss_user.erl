@@ -42,8 +42,8 @@ val(M) ->
 db_create(M) -> {ok, _Id} = ss_nosqlite:create(user, M), true.
 db_delete(M) -> ok =:= ss_nosqlite:delete(user, M).
 db_update(M) -> ok =:= ss_nosqlite:patch(user, M).
-db_get(Key)  -> ss_nosqlite:get(user, Key).
-db_all()     -> ss_nosqlite:all(user).
+db_get(Key)  -> ss_nosqlite:get(user, Key, model()).
+db_all()     -> ss_nosqlite:all(user, model()).
 
 %% exec handlers
 go(Data, Handlers) ->
