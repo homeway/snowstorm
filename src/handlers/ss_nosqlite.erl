@@ -3,7 +3,9 @@
 %%% @author homeway <homeway.xue@gmail.com>
 %%% @copyright (C) 2014, homeway
 %%% @doc
+%%% a KV storage joy with dets : )
 %%%
+%%% data saved as maps in fact, but access it with ss_model style
 %%% @end
 %%% Created : 24 Dec 2014 by homeway <homeway.xue@gmail.com>
 %%%-------------------------------------------------------------------
@@ -13,7 +15,7 @@
 
 %% 表初始化
 init(Table) ->
-    Filename = io_lib:format("data/~s.dets", [ss:to_binary(Table)]),
+    Filename = io_lib:format("data/~s.nosqlite", [ss:to_binary(Table)]),
     filelib:ensure_dir(Filename),
     dets:open_file(Table, [{type, set}, {file, Filename}, {repair, true}]).
 close(Table) ->
