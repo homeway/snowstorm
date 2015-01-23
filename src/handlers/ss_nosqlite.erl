@@ -24,58 +24,52 @@ close(Table) ->
 %% 创建数据，返回{ok, Id}
 %% Data应为maps类型
 %% 自动插入创建和最后修改时间时间戳, 使用ISO标准格式
-from_model(M) ->
-    L1 = lists:map(fun({K, V}) ->
-        {K, maps:get(value, V, <<>>)}
-    end, M),
-    maps:from_list(L1).
-to_model(D) ->
-    lists:map(fun({K, V}) ->
-        {K, #{value => V}}
-    end, maps:to_list(D)).
-
-create(Table, #{<<"_key">> := Id}=Data1) when is_map(Data1) ->
+create(Table, M) ->
+    Id1 = maps:get(value, proplists:get_value(<<"_key">>, M, #{}), undefined),
+    if
+        Id1 =:= undefined ->
+            {_, S, Ms} = now(),
+            Id = ss:to_binary(io_lib:format("~B-~6..0B", [S, Ms]));
+        true ->
+            Id = Id1
+    end,
     init(Table),
     Time = ss_time:now_to_iso(),
-    Data2 = from_model(Data1),
-    Data = Data2#{<<"_created_at">> => Time, <<"_lastmodified_at">> => Time},
+    Data1 = from_model(M),
+    Data = Data1#{<<"_created_at">> => Time, <<"_lastmodified_at">> => Time},
     dets:insert(Table, {Id, Data}),
-    close(Table);
-create(Table, Data1) when is_map(Data1) ->
-    Data = from_model(Data1),
-    {_, S, M} = now(),
-    Id = ss:to_binary(io_lib:format("~B-~6..0B", [S, M])),
-    ok = create(Table, Data#{<<"_key">> => Id}),
+    close(Table),
     {ok, Id}.
 
 %% 查看
 %% 直接返回所查到的maps类型，方便函数级联操作
 get(Table, Id) ->
     init(Table),
-    Result = case dets:lookup(Table, Id) of
-        [] -> #{<<"_error">> => <<"notfound">>};
-        [{_K, V}|_T] -> V
-    end,
+    [{_K, Result}|_] = dets:lookup(Table, Id),
     close(Table),
     to_model(Result#{<<"_key">> => Id}).
 
 %% 更新数据，返回ok | notfound
-update(Table, #{<<"_key">> := Id}=Data1) when is_map(Data1) ->
+update(Table, M) ->
+    Id = maps:get(value, proplists:get_value(<<"_key">>, M)),
     init(Table),
-    OldData = get(Table, Id),
+    OldData = from_model(get(Table, Id)),
     Time = ss_time:now_to_iso(),
-    Data2 = from_model(Data1),
-    Data = maps:merge(OldData, Data2#{<<"_lastmodified_at">> => Time}),
+    Data1 = from_model(M),
+    Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
     dets:insert(Table, {Id, Data}),
     close(Table).
+
 %% 部分更新
-patch(Table, #{<<"_key">> := Id}= Data) when is_map(Data) ->
-    {ok, Old} = get(Table, Id),
-    New = maps:merge(Old, from_model(Data)),
+patch(Table, M) ->
+    Id = maps:get(value, proplists:get_value(<<"_key">>, M)),
+    Old = from_model(get(Table, Id)),
+    New = maps:merge(Old, from_model(M)),
     update(Table, to_model(New)).
 
 %% 删除
-delete(Table, #{<<"_key">> := Id}) ->
+delete(Table, M) ->
+    Id = maps:get(value, proplists:get_value(<<"_key">>, M)),
     init(Table),
     dets:delete(Table, Id),
     close(Table).
@@ -106,3 +100,14 @@ search_acc(Table, K, Fun, Acc) ->
 %% 遍历所有数据
 all(Table) ->
     search(Table, fun(_K) -> true end, []).
+
+%% priv -------------------------------------------------
+from_model(M) ->
+    L1 = lists:map(fun({K, V}) ->
+        {ss:to_binary(K), maps:get(value, V, <<>>)}
+    end, M),
+    maps:from_list(L1).
+to_model(D) ->
+    lists:map(fun({K, V}) ->
+        {K, #{value => V}}
+    end, maps:to_list(D)).
