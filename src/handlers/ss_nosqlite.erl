@@ -25,6 +25,11 @@ close(Table) ->
 %% Data应为maps类型
 %% 自动插入创建和最后修改时间时间戳, 使用ISO标准格式
 create(Table, M) ->
+    case ss_model:validate(M) of
+        {ok, _} -> create2(Table, M);
+        {error, M2} -> {error, M2}
+    end.
+create2(Table, M) ->
     Id1 = maps:get(value, proplists:get_value(<<"_key">>, M, #{}), undefined),
     if
         Id1 =:= undefined ->
@@ -52,6 +57,11 @@ get(Table, Id, M) ->
 
 %% 更新数据，返回ok | notfound
 update(Table, M) ->
+    case ss_model:validate(M) of
+        {ok, _} -> update2(Table, M);
+        {error, M2} -> {error, M2}
+    end.
+update2(Table, M) ->
     Id = maps:get(value, proplists:get_value(<<"_key">>, M)),
     init(Table),
     OldData = from_model(get(Table, Id)),
@@ -59,7 +69,8 @@ update(Table, M) ->
     Data1 = from_model(M),
     Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
     dets:insert(Table, {Id, Data}),
-    close(Table).
+    close(Table),
+    ok.
 
 %% 部分更新
 patch(Table, M) ->
