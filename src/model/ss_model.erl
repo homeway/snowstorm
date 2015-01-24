@@ -5,7 +5,7 @@
 
 -export([value/2, value/3, length/2, equal/3]).
 -export([confirm_model/1, confirm_list/1, filter/2, drop/2]).
--export([validate/2, required/2, max/3, min/3]).
+-export([validate/1, validate/2, required/2, max/3, min/3]).
 
 %% get value from model with key
 value(Key, Model) ->
@@ -34,7 +34,23 @@ drop(M, L1) ->
     L = confirm_list(L1),
     [{K, V} || {K, V} <- M, not(lists:any(fun(I) -> I =:= K end, L))].
 
-%% validate
+%% validate model self
+validate(M) ->
+    Errors = lists:map(fun({K, Field}) ->
+        Funs = maps:get(validate, Field, []),
+        lists:map(fun(Fun) ->
+            case Fun of
+                required -> required(K, M);
+                {min, Len} when is_integer(Len) -> min(K, M, Len);
+                {max, Len} when is_integer(Len) -> max(K, M, Len);
+                _ when is_function(Fun) -> Fun(K, M);
+                {F, Args} when is_function(F) -> F(K, M, Args);
+                {Module, F, A} when is_atom(Module) and is_atom(F) and is_list(A) -> apply(Module, F, [K, M|A])
+            end
+        end, Funs)
+    end, M),
+    validate(M, Errors).
+%% merge all error message into model
 validate(M, Errors1) ->
     Errors = lists:flatten(Errors1),
     if
@@ -50,28 +66,25 @@ validate_acc(M0, [{K, Error}|Rest]) ->
     M1 = lists:keyreplace(K, 1, M0, {K, New}),
     validate_acc(M1, Rest).
 
-required(FieldName, M) ->
-    case length(FieldName, M) > 0 of
+required(K, M) ->
+    case length(K, M) > 0 of
         true -> [];
         false ->
-            K = ss:to_binary(FieldName),
-            Tip = ss:to_binary(io_lib:format("字段\"~ts\"必须存在", [K])),
+            Tip = <<"字段不能为空"/utf8>>,
             [{K, Tip}]
     end.
-min(FieldName, Len, M) ->
-    case length(FieldName, M) >= Len of
+min(K, M, Len) ->
+    case length(K, M) >= Len of
         true -> [];
         false ->
-            K = ss:to_binary(FieldName),
-            Tip = ss:to_binary(io_lib:format("字段\"~ts\"太短, 至少应为~p位", [K, Len])),
+            Tip = <<"字段太短, 至少应为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
             [{K, Tip}]
     end.
-max(FieldName, Len, M) ->
-    case length(FieldName, M) =< Len of
+max(K, M, Len) ->
+    case length(K, M) =< Len of
         true -> [];
         false ->
-            K = ss:to_binary(FieldName),
-            Tip = ss:to_binary(io_lib:format("字段\"~ts\"太长, 最多为~p位", [K, Len])),
+            Tip = <<"字段太长, 最多为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
             [{K, Tip}]
     end.
 
