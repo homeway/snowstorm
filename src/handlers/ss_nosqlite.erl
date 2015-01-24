@@ -80,8 +80,8 @@ patch(Table, M) ->
     update(Table, to_model(New)).
 
 %% 删除
-delete(Table, M) ->
-    Id = maps:get(value, proplists:get_value(<<"_key">>, M)),
+delete(Table, Key) ->
+    Id = ss:to_binary(Key),
     init(Table),
     dets:delete(Table, Id),
     close(Table).
