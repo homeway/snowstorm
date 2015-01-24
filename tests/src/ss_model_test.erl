@@ -1,53 +1,35 @@
 %% -*- mode: nitrogen -*-
 -module(ss_model_test).
--export([user/0]).
+-export([model/0]).
 -include_lib("eunit/include/eunit.hrl").
 
-%% 构造一个基于nosqlite的配置项模板
-base(Table, Model) ->
-    maps:merge(#{ nosqlite => [{table, Table}] }, Model).
-
 %% 定义示例模型(用户信息)
-user() ->
-    base(user,
-        #{index => [
-            {"type", text(#{value=> <<"common">>})},
-            {"account" , text(#{id=>account})},
-            {"tel", text()},
-            {name, text()},
-            {"nickname", text(#{id=>account})},
-            {"备注", text()}
-        ]}
-    ).
+model() -> [
+    {"类型", #{value=>"普通会员"}},
+    {"账户名", #{value=>"yifan"}},
+    {"性别", #{value=>"女"}},
+    {"密码", #{type=>password, value=>"123456"}},
+    {"EMail", #{}},
+    {"电话", #{}},
+    {"姓名", #{}},
+    {"昵称", #{}},
+    {"头像", #{type=>link, value=>"/themes/cube/img/samples/scarlet-159.png"}},
+    {"生日", #{type=>date}},
+    {"联系人", #{type=>tags}}
+].
 
 %% 运行关联测试
 to_test() ->
     ok.
 
-%% 读取模型
-get_test() ->
-    User = ss_model:face(index, user()),
-    ?assertMatch([{"type", _}|_], User).
-
-%% 1. 普通取值
-%% 2. 支持默认值
-value_test() ->
-    User = ss_model:face(index, user()),
-    ?assertEqual(undefined, ss_model:value("account", User, undefined)),
-    ?assertEqual(<<"common">>, ss_model:value("type", User)).
-
-%% 直接将模型中的值与变量比较
-equal_test() ->
-    User = ss_model:face(index, user()),
-    ?assertEqual(true, ss_model:equal("type", User, <<"common">>)).
-
-%% test helper -------------------------------------------------------
-text() ->
-    text(#{}).
-text(Field) ->
-    Default = #{
-        type=> text,
-        to_display => true,
-        to_query   => true
-    },
-    maps:merge(Default, Field).
+drop_test() ->
+    M1 = ss_model:drop(model(), ["类型", "电话", "密码", "联系人", "生日"]),
+    M2 = [
+        {"账户名", #{value=>"yifan"}},
+        {"性别", #{value=>"女"}},
+        {"EMail", #{}},
+        {"姓名", #{}},
+        {"昵称", #{}},
+        {"头像", #{type=>link, value=>"/themes/cube/img/samples/scarlet-159.png"}}
+    ],
+    ?assertEqual(M1, M2).
