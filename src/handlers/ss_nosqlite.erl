@@ -10,7 +10,7 @@
 %%% Created : 24 Dec 2014 by homeway <homeway.xue@gmail.com>
 %%%-------------------------------------------------------------------
 -module(ss_nosqlite).
--export([init/1, from_model/1, to_model/1, create/2, update/2, patch/2, get/2, get/3, delete/2, search/3]).
+-export([init/1, from_model/1, to_model/1, create/2, update/2, patch/2, get/3, delete/2, search/3]).
 -export([all/1, all/2]).
 
 %% 表初始化
@@ -50,7 +50,6 @@ create2(Table, M1) ->
 
 %% 查看
 %% 直接返回所查到的maps类型，方便函数级联操作
-get(Table, Key) -> get(Table, Key, []).
 get(Table, Key, M1) ->
     M = ss_model:confirm_model(M1),
     Id = ss:to_binary(Key),
@@ -67,10 +66,10 @@ update(Table, M) ->
     end.
 update2(Table, M1) ->
     M = ss_model:confirm_model(M1),
-    Key = maps:get(value, proplists:get_value(<<"_key">>, M)),
+    Key = maps:get(value, proplists:get_value(<<"_key">>, M), []),
     Id = ss:to_binary(Key),
     init(Table),
-    OldData = from_model(get(Table, Id)),
+    OldData = from_model(get(Table, Id, [])),
     Time = ss_time:now_to_iso(),
     Data1 = from_model(M),
     Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
@@ -81,8 +80,8 @@ update2(Table, M1) ->
 %% 部分更新
 patch(Table, M1) ->
     M = ss_model:confirm_model(M1),
-    Id = maps:get(value, proplists:get_value(<<"_key">>, M)),
-    Old = from_model(get(Table, Id)),
+    Id = maps:get(value, proplists:get_value(<<"_key">>, M), []),
+    Old = from_model(get(Table, Id, [])),
     New = maps:merge(Old, from_model(M)),
     update(Table, to_model(New)).
 
@@ -124,16 +123,14 @@ all(Table, M) ->
     L = search(Table, fun(_K) -> true end, []),
     [to_model(I, M) || I <- L].
 
-%% priv -------------------------------------------------
+%% convert model from nosqlite maps -------------------------------------
 from_model(M) ->
     L1 = lists:map(fun({K, V}) ->
         {ss:to_binary(K), maps:get(value, V, <<>>)}
     end, M),
     maps:from_list(L1).
-to_model(D) ->
-    lists:map(fun({K, V}) ->
-        {K, #{value => V}}
-    end, maps:to_list(D)).
+
+to_model(D) -> to_model(D, []).
 to_model(D, M1) ->
     M = [{ss:to_binary(K), V} || {K, V} <- M1],
     lists:map(fun({K, V}) ->

@@ -1,10 +1,11 @@
 %% -*- mode: nitrogen -*-
 -module(model_user).
--export([model/1, action/2]).
+-export([m/1]).
+-export([create/1, update/1, delete/1, get/1, all/0]).
 -define(db, ss_nosqlite).
 -define(res, user).
 
-model() -> [
+m() -> [
     {"类型", #{value=>"普通会员", validate=>[required]}},
     {"账户名", #{value=>"yifan", validate=>[required]}},
     {"性别", #{value=>"女"}},
@@ -17,14 +18,18 @@ model() -> [
     {"生日", #{type=>date}},
     {"联系人", #{type=>tags}}
 ].
-model(all) -> ss_model:confirm_model(model());
-model(index) -> ss_model:filter(model(), ["账户名", "昵称"]);
-model(new) -> ss_model:confirm_model(model());
-model(edit) -> ss_model:drop(model(), ["账户名", "昵称"]);
-model(show) -> ss_model:drop(model(), ["账户名"]).
 
-action(create, M)   -> ?db:create(?res, M);
-action(update, M)   -> ?db:patch (?res, M);
-action(delete, Key) -> ?db:delete(?res, Key);
-action(get, Key)    -> ?db:get   (?res, Key, model(all));
-action(all, _)      -> ?db:all   (?res, model(all)).
+m(all)      -> ss_model:confirm_model(m());
+m(new)      -> m(all);
+m(index)    -> ss_model:filter(m(), ["账户名", "昵称"]);
+m(edit)     -> ss_model:drop(m(), ["账户名", "类型"]);
+m(show)     -> ss_model:drop(m(), ["密码"]);
+m(password) -> ss_model:filter(m(), ["账户名", "密码"]);
+m(profile)  -> ss_model:filter([m(), "账户名", "昵称", "头像"]).
+
+%% db的非标操作也应在此定义
+create(M)   -> ?db:create(?res, M).
+update(M)   -> ?db:patch (?res, M).
+delete(Key) -> ?db:delete(?res, Key).
+get(Key)    -> ?db:get   (?res, Key, m(show)).
+all()       -> ?db:all   (?res, m(all)).
