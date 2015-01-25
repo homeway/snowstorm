@@ -29,7 +29,7 @@ model() -> ss_model:confirm_model([
 %     ok.
 
 filter_test() ->
-    M1 = ss_model:filter(model(), ["账户名", "EMail", "头像"]),
+    M1 = ss_model:filter(["账户名", "EMail", "头像"], model()),
     M2 = [
         {<<"账户名"/utf8>>, #{value=>"yifan"}},
         {<<"EMail"/utf8>>, #{validate=>[required]}},
@@ -38,7 +38,7 @@ filter_test() ->
     ?assertEqual(M1, M2).
 
 drop_test() ->
-    M1 = ss_model:drop(model(), ["类型", "电话", "密码", "联系人", "生日"]),
+    M1 = ss_model:drop(["类型", "电话", "密码", "联系人", "生日"], model()),
     M2 = [
         {<<"账户名"/utf8>>, #{value=>"yifan"}},
         {<<"性别"/utf8>>, #{value=>"女"}},
@@ -50,7 +50,7 @@ drop_test() ->
     ?assertEqual(M1, M2).
 
 validate_test() ->
-    {error, M1} = ss_model:validate(ss_model:filter(model(), ["生日"])),
+    {error, M1} = ss_model:validate(ss_model:filter(["生日"], model())),
     M2 = [
         {<<"生日"/utf8>>, #{
             validate=> [fun ?MODULE:custom_validate/2],
@@ -59,7 +59,7 @@ validate_test() ->
     ?assertEqual(M1, M2).
 
 set_test() ->
-    M1 = ss_model:filter(model(), ["账户名", "密码"]),
+    M1 = ss_model:filter(["账户名", "密码"], model()),
     M2 = ss_model:set([{"账户名", "adi"}, {"密码", "aabbcc"}], M1),
     M3 = [
         {"账户名", #{value=>"adi"}},

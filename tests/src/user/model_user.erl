@@ -21,11 +21,11 @@ m() -> [
 
 m(all)      -> ss_model:confirm_model(m());
 m(new)      -> m(all);
-m(index)    -> ss_model:filter(m(), ["账户名", "昵称"]);
-m(edit)     -> ss_model:drop(m(), ["账户名", "类型"]);
-m(show)     -> ss_model:drop(m(), ["密码"]);
-m(password) -> ss_model:filter(m(), ["账户名", "密码"]);
-m(profile)  -> ss_model:filter([m(), "账户名", "昵称", "头像"]).
+m(index)    -> ss_model:filter(["账户名", "昵称"], m());
+m(edit)     -> ss_model:drop(["账户名", "类型"], m());
+m(show)     -> ss_model:drop(["密码"], m());
+m(password) -> ss_model:filter(["账户名", "密码"], m());
+m(profile)  -> ss_model:filter(["账户名", "昵称", "头像"], m()).
 
 %% db的非标操作也应在此定义
 create(M)   -> ?db:create(?res, M).

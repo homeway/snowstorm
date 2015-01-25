@@ -33,10 +33,10 @@ confirm_model(M) -> [{ss:to_binary(K), V} || {K, V} <- M].
 confirm_list(L) -> [ss:to_binary(K) || K <- L].
 
 %% list filter and drop
-filter(M, L1) ->
+filter(L1, M) ->
     L = confirm_list(L1),
     [{K, V} || {K, V} <- M, lists:any(fun(I) -> I =:= K end, L)].
-drop(M, L1) ->
+drop(L1, M) ->
     L = confirm_list(L1),
     [{K, V} || {K, V} <- M, not(lists:any(fun(I) -> I =:= K end, L))].
 
@@ -55,22 +55,22 @@ validate(M) ->
             end
         end, Funs)
     end, M),
-    validate(M, Errors).
+    validate(Errors, M).
 %% merge all error message into model
-validate(M, Errors1) ->
+validate(Errors1, M) ->
     Errors = lists:flatten(Errors1),
     if
         length(Errors) > 0 -> R = error;
         true -> R = ok
     end,
-    {R, validate_acc(confirm_model(M), lists:flatten(Errors))}.
+    {R, validate_acc(lists:flatten(Errors), confirm_model(M))}.
 
-validate_acc(M0, []) -> M0;
-validate_acc(M0, [{K, Error}|Rest]) ->
+validate_acc([], M0) -> M0;
+validate_acc([{K, Error}|Rest], M0) ->
     Old = proplists:get_value(K, M0),
     New = Old#{error => Error},
     M1 = lists:keyreplace(K, 1, M0, {K, New}),
-    validate_acc(M1, Rest).
+    validate_acc(Rest, M1).
 
 %% validate required
 required(K, M) ->
