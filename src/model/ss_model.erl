@@ -1,6 +1,6 @@
 %% -*- mode: nitrogen -*-
 -module(ss_model).
--export([value/2, value/3, length/2, equal/3]).
+-export([value/2, value/3, length/2, equal/3, set/2]).
 -export([confirm_model/1, confirm_list/1, filter/2, drop/2]).
 -export([validate/1, validate/2, required/2, max/3, min/3]).
 
@@ -17,6 +17,16 @@ length(Key, Model) ->
 
 equal(Key, Model, ToCompare) ->
     value(Key, Model, undefined) =:= ToCompare.
+
+%% set value to existing model
+%% 赋值队列必须为属性列表
+set([], Model) -> Model;
+set([{K1, V}|Rest], Model0) ->
+    K = ss:to_binary(K1),
+    VOld = proplists:get_value(K, Model0),
+    VNew = VOld#{value => V},
+    Model = lists:keyreplace(K, 1, Model0, {K, VNew}),
+    set(Rest, Model).
 
 %% convert model key to binary
 confirm_model(M) -> [{ss:to_binary(K), V} || {K, V} <- M].

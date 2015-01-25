@@ -57,3 +57,12 @@ validate_test() ->
             error=> <<"长度必须为4"/utf8>>}}
     ],
     ?assertEqual(M1, M2).
+
+set_test() ->
+    M1 = ss_model:filter(model(), ["账户名", "密码"]),
+    M2 = ss_model:set([{"账户名", "adi"}, {"密码", "aabbcc"}], M1),
+    M3 = [
+        {"账户名", #{value=>"adi"}},
+        {"密码", #{type=>password, value=>"aabbcc"}}
+    ],
+    ?assertEqual(M2, ss_model:confirm_model(M3)).
