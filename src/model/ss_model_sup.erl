@@ -3,20 +3,17 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, start_child/3, stop_child/1]).
+-export([start/0, start_link/0, start_child/2, start_child/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
-
-%% Helper macro for declaring children of supervisor
--define(CHILD(Id, Module, Args, Type), {Id, {Module, start_link, Args}, permanent, 5000, Type, [Module]}).
 
 %% ===================================================================
 %% API functions
 %% ===================================================================
 
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start() -> {ok, Pid} = start_link(), unlink(Pid).
+start_link() -> supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %% ===================================================================
 %% Supervisor callbacks
@@ -25,9 +22,9 @@ start_link() ->
 init([]) ->
     {ok, { {one_for_one, 5, 10}, []} }.
 
-%% start a model server
-start_child(Id, Module, Args) ->
-    Child = ?CHILD(Id, Module, Args, worker),
-    supervisor:start_child(self(), Child).
-stop_child(Id) ->
-    supervisor:terminate_child(self(), Id).
+%% start a child
+-define(CHILD(Id, Module, Args, Type), {Id, {Module, start_link, Args}, permanent, 5000, Type, [Module, ss_world]}).
+start_child(Id, SsMod) -> start_child(Id, SsMod, []).
+start_child(Id, SsMod, Args) ->
+    Child = ?CHILD(Id, ss_server, [SsMod, Args], worker),
+    supervisor:start_child(?MODULE, Child).
