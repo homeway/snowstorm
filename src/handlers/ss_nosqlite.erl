@@ -24,19 +24,21 @@ close(Table) ->
 %% 创建数据，返回{ok, Id}
 %% Data应为maps类型
 %% 自动插入创建和最后修改时间时间戳, 使用ISO标准格式
-create(Table, M) ->
-    case ss_model:validate(M) of
+create(Table, M1) ->
+    M = ss_model:confirm_model(M1),
+    case ss_model:validate(ss_model:confirm_model(M)) of
         {ok, _} -> create2(Table, M);
         {error, M2} -> {error, M2}
     end.
-create2(Table, M) ->
+create2(Table, M1) ->
+    M = ss_model:confirm_model(M1),
     Id1 = maps:get(value, proplists:get_value(<<"_key">>, M, #{}), undefined),
     if
         Id1 =:= undefined ->
             {_, S, Ms} = now(),
             Id = ss:to_binary(io_lib:format("~B-~6..0B", [S, Ms]));
         true ->
-            Id = Id1
+            Id = ss:to_binary(Id1)
     end,
     init(Table),
     Time = ss_time:now_to_iso(),
@@ -48,8 +50,10 @@ create2(Table, M) ->
 
 %% 查看
 %% 直接返回所查到的maps类型，方便函数级联操作
-get(Table, Id) -> get(Table, Id, []).
-get(Table, Id, M) ->
+get(Table, Key) -> get(Table, Key, []).
+get(Table, Key, M1) ->
+    M = ss_model:confirm_model(M1),
+    Id = ss:to_binary(Key),
     init(Table),
     [{_K, Result}|_] = dets:lookup(Table, Id),
     close(Table),
@@ -61,8 +65,10 @@ update(Table, M) ->
         {ok, _} -> update2(Table, M);
         {error, M2} -> {error, M2}
     end.
-update2(Table, M) ->
-    Id = maps:get(value, proplists:get_value(<<"_key">>, M)),
+update2(Table, M1) ->
+    M = ss_model:confirm_model(M1),
+    Key = maps:get(value, proplists:get_value(<<"_key">>, M)),
+    Id = ss:to_binary(Key),
     init(Table),
     OldData = from_model(get(Table, Id)),
     Time = ss_time:now_to_iso(),
@@ -73,7 +79,8 @@ update2(Table, M) ->
     ok.
 
 %% 部分更新
-patch(Table, M) ->
+patch(Table, M1) ->
+    M = ss_model:confirm_model(M1),
     Id = maps:get(value, proplists:get_value(<<"_key">>, M)),
     Old = from_model(get(Table, Id)),
     New = maps:merge(Old, from_model(M)),
