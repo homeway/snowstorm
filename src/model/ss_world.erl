@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 -export([start_link/0, start/0, stop/0]).
--export([all/0, info/1, clear/0, reg/2, reg/3, unreg/1, find/1, send/2]).
+-export([all/0, info/1, clear/0, reg/2, reg/3, unreg/1, find/1, send/2, call/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
@@ -20,7 +20,8 @@ clear() -> gen_server:call(?SERVER, clear).
 reg(Name, Mod) -> reg(Name, Mod, []).
 reg(Name, Mod, Args) -> gen_server:call(?SERVER, {reg, Name, Mod, Args}).
 unreg(Name) -> gen_server:call(?SERVER, {unreg, Name}).
-send(Name, Msg) -> gen_server:call(?SERVER, {send, Name, Msg}).
+send(Name, Msg) -> gen_server:cast(?SERVER, {send, Name, {self(), Msg}}).
+call(Name, Msg) -> gen_server:call(?SERVER, {call, Name, Msg}).
 find(Name) -> gen_server:call(?SERVER, {find, Name}).
 
 %% start the models supervisor after the world start
@@ -31,9 +32,13 @@ init([]) ->
 
 %% reg model process with a uniq name
 handle_call({reg, Name, Mod, Args}, _From, _S) ->
-    R = ss_model_sup:start_child(Name, Mod, Args),
+    Reply = case ss_model_sup:start_child(Name, Mod, Args) of
+        {ok, Pid} -> Pid;
+        {error,{already_started, Pid}} -> Pid;
+        _ -> error
+    end,
     NewS = supervisor:which_children(ss_model_sup),
-    {reply, R, NewS};
+    {reply, Reply, NewS};
 handle_call({unreg, Name}, _From, _S) ->
     R = supervisor:delete_child(ss_model_sup, Name),
     NewS = supervisor:which_children(ss_model_sup),
@@ -43,7 +48,7 @@ handle_call({find, Name}, _From, S) ->
         false -> {reply, false, S};
         {Name, Pid, _, _} -> {reply, Pid, S}
     end;
-handle_call({send, Name, Msg}, _From, S) ->
+handle_call({call, Name, Msg}, _From, S) ->
     case lists:keyfind(Name, 1, S) of
         false -> {reply, false, S};
         {Name, Pid, _, _} -> {reply, gen_server:call(Pid, Msg), S}
@@ -61,6 +66,12 @@ handle_call(clear, _From, _S) ->
     NewS = supervisor:which_children(ss_model_sup),
     {reply, length(OldS) - length(NewS), NewS}.
 
+handle_cast({send, Name, Msg}, S) ->
+    case lists:keyfind(Name, 1, S) of
+        false -> none;
+        {Name, Pid, _, _} -> gen_server:cast(Pid, Msg)
+    end,
+    {noreply, S};
 handle_cast(stop, S) -> {stop, normal, S}.
 handle_info(undefined_info, S) -> {noreply, S}.
 terminate(normal, _S) -> ok.

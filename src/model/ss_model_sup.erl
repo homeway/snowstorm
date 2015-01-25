@@ -3,7 +3,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start/0, start_link/0, start_child/2, start_child/3]).
+-export([start/0, start_link/0, start_child/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -23,8 +23,7 @@ init([]) ->
     {ok, { {one_for_one, 5, 10}, []} }.
 
 %% start a child
--define(CHILD(Id, Module, Args, Type), {Id, {Module, start_link, Args}, permanent, 5000, Type, [Module, ss_world]}).
-start_child(Id, SsMod) -> start_child(Id, SsMod, []).
+-define(CHILD(Id, Module, Args, Type), {Id, {Module, start_link, Args}, permanent, 5000, Type, [Module]}).
 start_child(Id, SsMod, Args) ->
-    Child = ?CHILD(Id, ss_server, [SsMod, Args], worker),
+    Child = ?CHILD(Id, SsMod, Args, worker),
     supervisor:start_child(?MODULE, Child).
