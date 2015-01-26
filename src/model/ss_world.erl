@@ -70,7 +70,7 @@ handle_call({send, Name, Msg}, {From, _}, S0) ->
     S = supervisor:which_children(ss_model_sup),
     R = case lists:keyfind(Name, 1, S) of
         false -> not_reg;
-        {Name, Pid, _, _} -> gen_server:cast(Pid, {From, Msg})
+        {Name, Pid, _, _} -> gen_server:cast(Pid, {Msg, From})
     end,
     {reply, R, S0}.
 

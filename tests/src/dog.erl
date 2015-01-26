@@ -13,7 +13,7 @@ handle_call(hello, _From, #{color:=Color}=State) ->
     io:format("call: ~p, won! won! ~n", [Color]),
     {reply, ok, State}.
 
-handle_cast({_From, hello}, #{color:=Color}=State) ->
+handle_cast({hello, _From}, #{color:=Color}=State) ->
     io:format("message: ~p, won! won! ~n", [Color]),
     {noreply, State}.
 
