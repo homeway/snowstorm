@@ -1,3 +1,4 @@
+%% -*- mode: nitrogen -*-
 -module(ss_model_sup).
 
 -behaviour(supervisor).
@@ -12,7 +13,12 @@
 %% API functions
 %% ===================================================================
 
-start() -> {ok, Pid} = start_link(), unlink(Pid).
+start() ->
+    Pid1 = case start_link() of
+        {ok, Pid} -> Pid;
+        {error,{already_started, Pid}} -> Pid
+    end,
+    unlink(Pid1).
 start_link() -> supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %% ===================================================================

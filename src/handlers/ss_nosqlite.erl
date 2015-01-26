@@ -54,9 +54,12 @@ get(Table, Key, M1) ->
     M = ss_model:confirm_model(M1),
     Id = ss:to_binary(Key),
     init(Table),
-    [{_K, Result}|_] = dets:lookup(Table, Id),
+    R = case dets:lookup(Table, Id) of
+        [{_K, Result}|_] -> Result;
+        Error -> erlang:display(Error), #{}
+    end,
     close(Table),
-    to_model(Result#{<<"_key">> => Id}, M).
+    to_model(R#{<<"_key">> => Id}, M).
 
 %% 更新数据，返回ok | notfound
 update(Table, M) ->
@@ -69,13 +72,18 @@ update2(Table, M1) ->
     Key = maps:get(value, proplists:get_value(<<"_key">>, M), []),
     Id = ss:to_binary(Key),
     init(Table),
-    OldData = from_model(get(Table, Id, [])),
-    Time = ss_time:now_to_iso(),
-    Data1 = from_model(M),
-    Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
-    dets:insert(Table, {Id, Data}),
-    close(Table),
-    ok.
+    case get(Table, Id, []) of
+        #{} ->
+            close(Table),{error, invalid_key};
+        Data -> 
+            OldData = from_model(Data),
+            Time = ss_time:now_to_iso(),
+            Data1 = from_model(M),
+            Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
+            dets:insert(Table, {Id, Data}),
+            close(Table),
+            ok
+    end.
 
 %% 部分更新
 patch(Table, M1) ->

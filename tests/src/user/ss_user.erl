@@ -7,18 +7,19 @@
 start_link()       -> gen_server:start_link(?MODULE, [], []).
 start_link(UserId) -> gen_server:start_link(?MODULE, [UserId], []).
 
-init(_)        -> {ok, #{id=>anonymouse}}.
+init(_) -> {ok, #{id=>anonymouse}}.
 
 handle_call(hello, _From, #{id:=anonymouse}=S) ->  {reply, #{}, S};
 handle_call(hello, _From, #{id:=Id}=S) -> {reply, model_user:get(Id), S};
+handle_call(whoami, _From, #{id:=Id}=S) -> {reply, Id, S};
 
-handle_call({login, Id}, _From, #{id:=anonymouse}=S) ->
-    case model_user:login(Id) of
-        ok -> {reply, ok, S#{id=>Id}};
-        Error -> {reply, Error, S}
+handle_call({login, Id, Pass}, _From, #{id:=anonymouse}=S) ->
+    case model_user:check_password(Id, Pass) of
+        true -> {reply, ok, S#{id=>Id}};
+        false -> {reply, invalid_user_or_pass, S}
     end;
 
-handle_call({login, Id}, _From, S) -> {reply, already_login, S};
+handle_call({login, _Id, _Pass}, _From, S) -> {reply, already_login, S};
 handle_call(logout, _From, S) -> {reply, ok, S#{id=>anonymouse}}.
 
 handle_cast({_Msg, _From}, S) -> {noreply, S}.

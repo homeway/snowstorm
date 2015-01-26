@@ -2,6 +2,8 @@
 -module(model_user).
 -export([m/1]).
 -export([create/1, update/1, delete/1, get/1, all/0]).
+-export([check_password/2]).
+
 -define(db, ss_nosqlite).
 -define(res, user).
 
@@ -27,9 +29,14 @@ m(show)     -> ss_model:drop(["密码"], m());
 m(password) -> ss_model:filter(["账户名", "密码"], m());
 m(profile)  -> ss_model:filter(["账户名", "昵称", "头像"], m()).
 
-%% db的非标操作也应在此定义
+%% db标准方法
 create(M)   -> ?db:create(?res, M).
 update(M)   -> ?db:patch (?res, M).
 delete(Key) -> ?db:delete(?res, Key).
 get(Key)    -> ?db:get   (?res, Key, m(show)).
 all()       -> ?db:all   (?res, m(all)).
+
+%% db的非标操作也应在此定义
+check_password(UserId, Pass) ->
+    Info = ?MODULE:get(UserId),
+    ss_model:equal("密码", Info, Pass).
