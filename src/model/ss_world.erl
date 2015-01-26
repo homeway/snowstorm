@@ -34,7 +34,7 @@ handle_call({reg, Name, Mod, Args}, _From, S0) ->
     Reply = case ss_model_sup:start_child(Name, Mod, Args) of
         {ok, Pid} -> Pid;
         {error,{already_started, Pid}} -> Pid;
-        _ -> error
+        Error -> Error
     end,
     {reply, Reply, S0};
 handle_call({unreg, Name}, _From, S0) ->
@@ -69,7 +69,7 @@ handle_call(clear, _From, S0) ->
 handle_call({send, Name, Msg}, {From, _}, S0) ->
     S = supervisor:which_children(ss_model_sup),
     R = case lists:keyfind(Name, 1, S) of
-        false -> not_sent;
+        false -> not_reg;
         {Name, Pid, _, _} -> gen_server:cast(Pid, {From, Msg})
     end,
     {reply, R, S0}.
