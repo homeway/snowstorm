@@ -38,35 +38,49 @@ handle_call({reg, Name, Mod, Args}, _From, S0) ->
         Error -> Error
     end,
     {reply, Reply, S0};
+
+%% unreg process with uniq name
 handle_call({unreg, Name}, _From, S0) ->
     R = supervisor:delete_child(ss_model_sup, Name),
     {reply, R, S0};
+
+%% find model process with uniq name
 handle_call({find, Name}, _From, S0) ->
     S = supervisor:which_children(ss_model_sup),
     case lists:keyfind(Name, 1, S) of
         false -> {reply, false, S0};
         {Name, Pid, _, _} -> {reply, Pid, S0}
     end;
+
+%% call handle_call in model process
 handle_call({call, Name, Req}, _From, S0) ->
     S = supervisor:which_children(ss_model_sup),
     case lists:keyfind(Name, 1, S) of
         false -> {reply, false, S0};
         {Name, Pid, _, _} -> {reply, gen_server:call(Pid, Req), S0}
     end;
+
+%% list all process in ss_world
 handle_call(all, _From, S0) ->
     S = supervisor:which_children(ss_model_sup),
     {reply, [{Name, Pid} || {Name, Pid, _, _} <- S], S0};
+
+%% list the process info with uniq name
 handle_call({info, Name}, _From, S0) ->
     S = supervisor:which_children(ss_model_sup),
     case lists:keyfind(Name, 1, S) of
         false -> {reply, false, S0};
         {Name, Pid, _, _} -> {reply, erlang:process_info(Pid), S0}
     end;
+
+%% clear undefined process in ss_world
 handle_call(clear, _From, S0) ->
     OldS = supervisor:which_children(ss_model_sup),
     [supervisor:delete_child(ss_model_sup, Name) || {Name, Pid, _, _} <- OldS, Pid =:= undefined],
     NewS = supervisor:which_children(ss_model_sup),
     {reply, length(OldS) - length(NewS), S0};
+
+%% cast message to process
 handle_call({send, Name, Msg}, {From, _}, S0) ->
     S = supervisor:which_children(ss_model_sup),
     R = case lists:keyfind(Name, 1, S) of
