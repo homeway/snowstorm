@@ -10,7 +10,7 @@
 %%% Created : 24 Dec 2014 by homeway <homeway.xue@gmail.com>
 %%%-------------------------------------------------------------------
 -module(ss_nosqlite).
--export([init/1, create/2, update/2, patch/2, find/2, delete/2, search/3]).
+-export([init/1, create/2, create/3, update/3, patch/3, find/2, delete/2, search/3]).
 -export([all/1]).
 
 %% 表初始化
@@ -24,25 +24,14 @@ close(Table) ->
 %% 创建数据，返回{ok, Id}
 %% Data应为maps类型
 %% 自动插入创建和最后修改时间时间戳, 使用ISO标准格式
-create(Table, M1) ->
-    M = ss_model:confirm_model(M1),
-    case ss_model:validate(ss_model:confirm_model(M)) of
-        {ok, _} -> create2(Table, M);
-        {error, M2} -> {error, M2}
-    end.
-create2(Table, M1) ->
-    M = ss_model:confirm_model(M1),
-    Id1 = maps:get(value, proplists:get_value(<<"_key">>, M, #{}), undefined),
-    if
-        Id1 =:= undefined ->
-            {_, S, Ms} = now(),
-            Id = ss:to_binary(io_lib:format("~B-~6..0B", [S, Ms]));
-        true ->
-            Id = ss:to_binary(Id1)
-    end,
+create(Table, Data) ->
+    {_, S, Ms} = now(),
+    Id = ss:to_binary(io_lib:format("~B-~6..0B", [S, Ms])),
+    create(Table, Id, Data).
+create(Table, Key, Data1) ->
+    Id = ss:to_binary(Key),
     init(Table),
     Time = ss_time:now_to_iso(),
-    Data1 = ss_model:from_model(M),
     Data = Data1#{<<"_created_at">> => Time, <<"_lastmodified_at">> => Time},
     dets:insert(Table, {Id, Data}),
     close(Table),
@@ -61,14 +50,7 @@ find(Table, Key) ->
     R.
 
 %% 更新数据，返回ok | notfound
-update(Table, M) ->
-    case ss_model:validate(M) of
-        {ok, _} -> update2(Table, M);
-        {error, M2} -> {error, M2}
-    end.
-update2(Table, M1) ->
-    M = ss_model:confirm_model(M1),
-    Key = maps:get(value, proplists:get_value(<<"_key">>, M), []),
+update(Table, Key, Data1) ->
     Id = ss:to_binary(Key),
     init(Table),
     case find(Table, Id) of
@@ -77,7 +59,6 @@ update2(Table, M1) ->
         Data -> 
             OldData = ss_model:from_model(Data),
             Time = ss_time:now_to_iso(),
-            Data1 = ss_model:from_model(M),
             Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
             dets:insert(Table, {Id, Data}),
             close(Table),
@@ -85,12 +66,11 @@ update2(Table, M1) ->
     end.
 
 %% 部分更新
-patch(Table, M1) ->
-    M = ss_model:confirm_model(M1),
-    Id = maps:get(value, proplists:get_value(<<"_key">>, M), []),
-    Old = ss_model:from_model(find(Table, Id)),
-    New = maps:merge(Old, ss_model:from_model(M)),
-    update(Table, ss_model:to_model(New)).
+patch(Table, Key, Data) ->
+    Id = ss:to_binary(Key),
+    Old = find(Table, Id),
+    New = maps:merge(Old, Data),
+    update(Table, Id, New).
 
 %% 删除
 delete(Table, Key) ->
