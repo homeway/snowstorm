@@ -10,8 +10,9 @@
 %%% Created : 24 Dec 2014 by homeway <homeway.xue@gmail.com>
 %%%-------------------------------------------------------------------
 -module(ss_nosqlite).
--export([init/1, create/2, create/3, update/3, patch/3, find/2, delete/2, search/3]).
--export([all/1]).
+-behaviour(ss_db).
+-export([create/2, create/3, update/3, patch/3, find/2, delete/2, all/1]).
+-export([init/1, search/3]).
 
 %% 表初始化
 init(Table) ->
