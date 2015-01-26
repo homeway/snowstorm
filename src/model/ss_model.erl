@@ -3,6 +3,7 @@
 -export([value/2, value/3, length/2, equal/3, set/2]).
 -export([confirm_model/1, confirm_list/1, filter/2, drop/2]).
 -export([validate/1, validate/2, required/2, max/3, min/3]).
+-export([from_model/1, to_model/1, to_model/2]).
 
 %% get value from model with key
 value(Key, Model) ->
@@ -98,3 +99,19 @@ max(K, M, Len) ->
             Tip = <<"字段太长, 最多为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
             [{K, Tip}]
     end.
+
+%% convert model from db maps -------------------------------------
+from_model(M) ->
+    L1 = lists:map(fun({K, V}) ->
+        {ss:to_binary(K), maps:get(value, V, <<>>)}
+    end, M),
+    maps:from_list(L1).
+
+to_model(D) -> to_model(D, []).
+to_model(D, M1) ->
+    M = [{ss:to_binary(K), V} || {K, V} <- M1],
+    lists:map(fun({K, V}) ->
+        Field = proplists:get_value(K, M, #{}),
+        {K, Field#{value => V}}
+    end, maps:to_list(D)).
+

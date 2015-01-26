@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 -export([start_link/0, start/0, stop/0]).
--export([all/0, info/1, clear/0, reg/2, reg/3, unreg/1, find/1, send/2, call/2]).
+-export([all/0, info/1, clear/0, reg/2, reg/3, regss/3, unreg/1, find/1, send/2, call/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
@@ -14,15 +14,16 @@ start() -> gen_server:start({local, ?SERVER}, ?MODULE, [], []).
 stop() -> gen_server:cast(?SERVER, stop).
 
 %% api for user
-all() -> gen_server:call(?SERVER, all).
-info(Name) -> gen_server:call(?SERVER, {info, Name}).
-clear() -> gen_server:call(?SERVER, clear).
-reg(Name, Mod) -> reg(Name, Mod, []).
+reg(Name, Mod)       -> reg(Name, Mod, []).
 reg(Name, Mod, Args) -> gen_server:call(?SERVER, {reg, Name, Mod, Args}).
-unreg(Name) -> gen_server:call(?SERVER, {unreg, Name}).
-send(Name, Msg) -> gen_server:call(?SERVER, {send, Name, Msg}).
-call(Name, Req) -> gen_server:call(?SERVER, {call, Name, Req}).
-find(Name) -> gen_server:call(?SERVER, {find, Name}).
+regss(Name, Mod, Args) -> gen_server:call(?SERVER, {reg, Name, ss_server, [[Mod|Args]]}).
+info(Name)           -> gen_server:call(?SERVER, {info, Name}).
+unreg(Name)          -> gen_server:call(?SERVER, {unreg, Name}).
+send(Name, Msg)      -> gen_server:call(?SERVER, {send, Name, Msg}).
+call(Name, Req)      -> gen_server:call(?SERVER, {call, Name, Req}).
+find(Name)           -> gen_server:call(?SERVER, {find, Name}).
+all()                -> gen_server:call(?SERVER, all).
+clear()              -> gen_server:call(?SERVER, clear).
 
 %% start the models supervisor after the world start
 init([]) ->

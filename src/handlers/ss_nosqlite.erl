@@ -10,8 +10,8 @@
 %%% Created : 24 Dec 2014 by homeway <homeway.xue@gmail.com>
 %%%-------------------------------------------------------------------
 -module(ss_nosqlite).
--export([init/1, from_model/1, to_model/1, create/2, update/2, patch/2, get/3, delete/2, search/3]).
--export([all/1, all/2]).
+-export([init/1, create/2, update/2, patch/2, find/2, delete/2, search/3]).
+-export([all/1]).
 
 %% 表初始化
 init(Table) ->
@@ -42,7 +42,7 @@ create2(Table, M1) ->
     end,
     init(Table),
     Time = ss_time:now_to_iso(),
-    Data1 = from_model(M),
+    Data1 = ss_model:from_model(M),
     Data = Data1#{<<"_created_at">> => Time, <<"_lastmodified_at">> => Time},
     dets:insert(Table, {Id, Data}),
     close(Table),
@@ -50,8 +50,7 @@ create2(Table, M1) ->
 
 %% 查看
 %% 直接返回所查到的maps类型，方便函数级联操作
-get(Table, Key, M1) ->
-    M = ss_model:confirm_model(M1),
+find(Table, Key) ->
     Id = ss:to_binary(Key),
     init(Table),
     R = case dets:lookup(Table, Id) of
@@ -59,7 +58,7 @@ get(Table, Key, M1) ->
         Error -> erlang:display(Error), #{}
     end,
     close(Table),
-    to_model(R#{<<"_key">> => Id}, M).
+    R.
 
 %% 更新数据，返回ok | notfound
 update(Table, M) ->
@@ -72,13 +71,13 @@ update2(Table, M1) ->
     Key = maps:get(value, proplists:get_value(<<"_key">>, M), []),
     Id = ss:to_binary(Key),
     init(Table),
-    case get(Table, Id, []) of
+    case find(Table, Id) of
         #{} ->
             close(Table),{error, invalid_key};
         Data -> 
-            OldData = from_model(Data),
+            OldData = ss_model:from_model(Data),
             Time = ss_time:now_to_iso(),
-            Data1 = from_model(M),
+            Data1 = ss_model:from_model(M),
             Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
             dets:insert(Table, {Id, Data}),
             close(Table),
@@ -89,9 +88,9 @@ update2(Table, M1) ->
 patch(Table, M1) ->
     M = ss_model:confirm_model(M1),
     Id = maps:get(value, proplists:get_value(<<"_key">>, M), []),
-    Old = from_model(get(Table, Id, [])),
-    New = maps:merge(Old, from_model(M)),
-    update(Table, to_model(New)).
+    Old = ss_model:from_model(find(Table, Id)),
+    New = maps:merge(Old, ss_model:from_model(M)),
+    update(Table, ss_model:to_model(New)).
 
 %% 删除
 delete(Table, Key) ->
@@ -105,9 +104,9 @@ delete(Table, Key) ->
 %% Option 选项: [{start, Start}, {row, Row}, {sort, Sort}]
 search(Table, Fun, _Options) ->
     init(Table),
-    Result = search_acc(Table, dets:first(Table), Fun, []),
+    R = search_acc(Table, dets:first(Table), Fun, []),
     close(Table),
-    Result.
+    R.
 
 %% 在查询结果中插入<<"_key">>，实际上数据库并不保存这个字段
 %% 但其他两个系统字段<<"_lastmodified_at">>和<<"_created_at">>是要保存的
@@ -125,23 +124,4 @@ search_acc(Table, K, Fun, Acc) ->
 
 %% 遍历所有数据
 all(Table) ->
-    L = search(Table, fun(_K) -> true end, []),
-    [to_model(I) || I <- L].
-all(Table, M) ->
-    L = search(Table, fun(_K) -> true end, []),
-    [to_model(I, M) || I <- L].
-
-%% convert model from nosqlite maps -------------------------------------
-from_model(M) ->
-    L1 = lists:map(fun({K, V}) ->
-        {ss:to_binary(K), maps:get(value, V, <<>>)}
-    end, M),
-    maps:from_list(L1).
-
-to_model(D) -> to_model(D, []).
-to_model(D, M1) ->
-    M = [{ss:to_binary(K), V} || {K, V} <- M1],
-    lists:map(fun({K, V}) ->
-        Field = proplists:get_value(K, M, #{}),
-        {K, Field#{value => V}}
-    end, maps:to_list(D)).
+    search(Table, fun(_K) -> true end, []).
