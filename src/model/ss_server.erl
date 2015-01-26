@@ -34,7 +34,7 @@ init([Mod|Args]) ->
 %% delegate handle_call-----------------------------------------------
 %%
 %% give up _From and use an atom
-handle_call(Fun, _From, #{mod:=Mod}=S1) ->
+handle_call(Fun, _From, #{mod:=Mod}=S1) when is_atom(Fun) ->
     {Result, S2} = handle_delegate(Mod, Fun, [], S1),
     {reply, Result, S2};
 
@@ -84,19 +84,19 @@ all(#{db:=Db, res:=Res}=S) ->
 %%
 %% delegate action to module or do it self
 handle_delegate(Mod, Fun, Args, S) ->
-    case erlang:function_exported(Mod, Fun, length(Args)) of
+    case erlang:function_exported(Mod, Fun, length(Args)+1) of
         true -> apply(Mod, Fun, Args++[S]);
         false ->
-            case erlang:function_exported(?MODULE, Fun, length(Args)) of
+            case erlang:function_exported(?MODULE, Fun, length(Args)+1) of
                 true -> apply(?MODULE, Fun, Args++[S]);
                 false -> {{error, no_action, [Mod, Fun, Args]}, S}
             end
     end.
 handle_delegate(Mod, Fun, Args, From, S) ->
-    case erlang:function_exported(Mod, Fun, length(Args)) of
+    case erlang:function_exported(Mod, Fun, length(Args)+1) of
         true -> apply(Mod, Fun, Args++[From, S]);
         false ->
-            case erlang:function_exported(?MODULE, Fun, length(Args)) of
+            case erlang:function_exported(?MODULE, Fun, length(Args)+1) of
                 true -> apply(?MODULE, Fun, Args++[From, S]);
                 false -> {{error, no_action, [Mod, Fun, Args]}, S}
             end

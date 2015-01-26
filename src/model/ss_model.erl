@@ -101,6 +101,7 @@ max(K, M, Len) ->
     end.
 
 %% convert model from db maps -------------------------------------
+%% db maps: #{key() => value()}
 from_model(M) ->
     L1 = lists:map(fun({K, V}) ->
         {ss:to_binary(K), maps:get(value, V, <<>>)}
