@@ -2,7 +2,7 @@
 -module(ss_model).
 -export([value/2, value/3, length/2, equal/3, set/2]).
 -export([confirm_model/1, confirm_list/1, filter/2, drop/2]).
--export([validate/1, validate/2, required/2, max/3, min/3]).
+-export([validate/1, validate/2, custom_validate/3, required/2, max/3, min/3]).
 -export([from_model/1, to_model/1, to_model/2]).
 
 %% get value from model or map with key
@@ -18,7 +18,10 @@ value(Key, Model, Default) ->
     maps:get(value, V, Default).
 
 length(Key, Model) ->
-    erlang:length(value(Key, Model, "")).
+    case value(Key, Model, <<>>) of
+        <<>> -> 0;
+        V -> erlang:length(V)
+    end.
 
 equal(Key, Model, ToCompare) ->
     value(Key, Model, undefined) =:= ToCompare.
@@ -69,7 +72,7 @@ validate(Errors1, M) ->
         true -> R = ok
     end,
     M1 = validate_acc(lists:flatten(Errors), confirm_model(M)),
-    {R, lists:reverse(M1)}.
+    {R, M1}.
 
 validate_acc([], M0) -> M0;
 validate_acc([{K, Error}|Rest], M0) ->
@@ -79,45 +82,43 @@ validate_acc([{K, Error}|Rest], M0) ->
     validate_acc(Rest, M1).
 
 %% validate required
-required(K, M) ->
-    case length(K, M) > 0 of
+custom_validate(K, Tip, Fun) when is_binary(K) and is_function(Fun) ->
+    case Fun() of
         true -> [];
-        false ->
-            Tip = <<"字段不能为空"/utf8>>,
-            [{K, Tip}]
+        false -> [{K, Tip}]
     end.
+required(K, M) ->
+    custom_validate(K, <<"字段不能为空"/utf8>>, fun() ->
+        length(K, M) > 0
+    end).
 
 %% validate min length
 min(K, M, Len) ->
-    case length(K, M) >= Len of
-        true -> [];
-        false ->
-            Tip = <<"字段太短, 至少应为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
-            [{K, Tip}]
-    end.
+    Tip = <<"字段太短, 至少应为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
+    custom_validate(K, Tip, fun() ->
+        length(K, M) >= Len
+    end).
 
 %% validate max length
 max(K, M, Len) ->
-    case length(K, M) =< Len of
-        true -> [];
-        false ->
-            Tip = <<"字段太长, 最多为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
-            [{K, Tip}]
-    end.
+    Tip = <<"字段太长, 最多为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
+    custom_validate(K, Tip, fun() ->
+        length(K, M) =< Len
+    end).
 
 %% convert model from db maps -------------------------------------
 %% db maps: #{key() => value()}
 from_model(M) ->
     L1 = lists:map(fun({K, V}) ->
-        {ss:to_binary(K), maps:get(value, V, <<>>)}
+        {ss:to_binary(K), maps:get(value, V, "")}
     end, M),
     maps:from_list(L1).
 
 to_model(D) -> to_model(D, []).
-to_model(D, M1) ->
-    M = [{ss:to_binary(K), V} || {K, V} <- M1],
-    lists:map(fun({K, V}) ->
-        Field = proplists:get_value(K, M, #{}),
+to_model(D1, M) ->
+    D = [{ss:to_binary(K), V} || {K, V} <- maps:to_list(D1)],
+    lists:map(fun({K, Field}) ->
+        V = proplists:get_value(K, D, <<>>),
         {K, Field#{value => V}}
-    end, maps:to_list(D)).
+    end, confirm_model(M)).
 

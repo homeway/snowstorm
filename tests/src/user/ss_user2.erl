@@ -4,10 +4,6 @@
 -export([init/1, model/1]).
 -export([hello/1, status/1, status/2, who/1, login/3, logout/1]).
 
-%% test with ss_server_test
--include_lib("eunit/include/eunit.hrl").
-to_test() -> ss_server_test:test().
-
 %% ss_server api
 init(_) -> {ok, #{db=>ss_nosqlite, res=>user, id=>not_login}}.
 

@@ -22,9 +22,6 @@ to_test() ->
     ?assertMatch([{_K, #{}}|_], ss_world:call2(?world, P1, [model, all])),
 
     %% call db methods
-    D1 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "123456"},
-    D2 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "1234"},
-    D3 = #{<<"密码"/utf8>> => "654321"},
 
     %% clear data
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
@@ -32,11 +29,13 @@ to_test() ->
     
     %% create
     M1 = ss_world:call2(?world, P1, [model, password]),
+    D1 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "123456"},
     ?assertMatch([{<<"账户名"/utf8>>, _}, {<<"密码"/utf8>>, _}], M1),
     {ok, Id1} = ss_world:call2(?world, P1, [create, D1, M1]),
     ?assertEqual(true, is_binary(Id1)),
 
     %% create with invalidte min length
+    D2 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "1234"},
     {error, M2} = ss_world:call2(?world, P1, [create, D2, M1]),
     ?assertMatch([{<<"账户名"/utf8>>, #{}}, {<<"密码"/utf8>>, #{}}], M2),
     {error, _} = ss_world:call2(?world, P1, [create, D2, password]),
@@ -46,7 +45,9 @@ to_test() ->
     ?assertMatch(#{<<"账户名"/utf8>> := "yifan", <<"密码"/utf8>> := "123456"}, ss_world:call2(?world, P1, [find, Id1])),
 
     %% update Id1
-    ?assertEqual(ok, ss_world:call2(?world, P1, [update, Id1, D3, M1])),
+    M_PassOnly = ss_model:filter(["密码"], ss_user2:model(all)),
+    D3 = #{<<"密码"/utf8>> => "654321"},
+    ?assertEqual(ok, ss_world:call2(?world, P1, [update, Id1, D3, M_PassOnly])),
     ?assertMatch(#{<<"账户名"/utf8>> := "yifan", <<"密码"/utf8>> := "654321"}, ss_world:call2(?world, P1, [find, Id1])),
 
     %% all
