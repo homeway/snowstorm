@@ -24,7 +24,7 @@ to_test() ->
     %% call db methods
     D1 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "123456"},
     D2 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "1234"},
-    %D3 = #{<<"密码"/utf8>> => "654321"},
+    D3 = #{<<"密码"/utf8>> => "654321"},
 
     %% clear data
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
@@ -40,17 +40,26 @@ to_test() ->
     {error, M2} = ss_world:call2(?world, P1, [create, D2, M1]),
     ?assertMatch([{<<"账户名"/utf8>>, #{}}, {<<"密码"/utf8>>, #{}}], M2),
 
-    %% find
+    %% find Id1
     ?assertMatch(#{<<"账户名"/utf8>> := "yifan", <<"密码"/utf8>> := "123456"}, ss_world:call2(?world, P1, [find, Id1])),
-    % %% update
-    % ?assertEqual(ok, update(?tab, Id1, D2)),
-    % ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 11}, find(?tab, Id1)),
-    % %% all
-    % ?assertEqual(2, length(all(?tab))),
-    % %% delete
-    % ?assertEqual(ok, delete(?tab, Id1)),
-    % ?assertEqual(1, length(all(?tab))),
-    % ?assertEqual(notfound, find(?tab, Id1)).
+
+    %% update Id1
+    ?assertEqual(ok, ss_world:call2(?world, P1, [update, Id1, D3, M1])),
+    ?assertMatch(#{<<"账户名"/utf8>> := "yifan", <<"密码"/utf8>> := "654321"}, ss_world:call2(?world, P1, [find, Id1])),
+
+    %% all
+    ?assertEqual(1, length(ss_world:call2(?world, P1, all))),
+    {ok, _Id2} = ss_world:call2(?world, P1, [create, D1, M1]),
+    {ok, Id3} = ss_world:call2(?world, P1, [create, D1, M1]),
+    ?assertEqual(3, length(ss_world:call2(?world, P1, all))),
+
+    %% delete Id3
+    ?assertEqual(ok, ss_world:call2(?world, P1, [delete, Id3])),
+    ?assertEqual(2, length(ss_world:call2(?world, P1, all))),
+    ?assertMatch(notfound, ss_world:call2(?world, P1, [find, Id3])),
+
+    %% clear data
+    ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
 
     %% stop the world
     ss_world:stop2(?world).

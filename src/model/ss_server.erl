@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 -export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([info/1, model/2, create/3, update/3, delete/2, find/2, all/1, drop/1]).
+-export([info/1, model/2, create/3, update/4, delete/2, find/2, all/1, drop/1]).
 
 %% ss_server behaviour define ---------------------------------------
 %%
@@ -72,9 +72,9 @@ create(Data, M0, #{db:=Db, res:=Res}=S) ->
         {error, M2} -> {{error, M2}, S}
     end.
 
-update(Data, M, #{db:=Db, res:=Res}=S) ->
+update(K, Data, M, #{db:=Db, res:=Res}=S) ->
     case ss_model:validate(ss_model:confirm_model(M)) of
-        {ok, _} -> {Db:patch(Res, Data), S};
+        {ok, _} -> {Db:update(Res, K, Data), S};
         {error, M2} -> {{error, M2}, S}
     end.
 
