@@ -39,7 +39,7 @@ to_test() ->
     %% create with invalidte min length
     {error, M2} = ss_world:call2(?world, P1, [create, D2, M1]),
     ?assertMatch([{<<"账户名"/utf8>>, #{}}, {<<"密码"/utf8>>, #{}}], M2),
-    {error, M3} = ss_world:call2(?world, P1, [create, D2, password]),
+    {error, _} = ss_world:call2(?world, P1, [create, D2, password]),
     ?assertMatch([{<<"账户名"/utf8>>, #{}}, {<<"密码"/utf8>>, #{}}], M2),
 
     %% find Id1
@@ -60,8 +60,18 @@ to_test() ->
     ?assertEqual(2, length(ss_world:call2(?world, P1, all))),
     ?assertMatch(notfound, ss_world:call2(?world, P1, [find, Id3])),
 
-    %% clear data
-    ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
+    %% other methods
+    %%
+    %% hello
+    ?assertEqual(undefined, ss_world:call2(?world, P1, hello)),
+    %% login
+    ToLogin = ss_world:call2(?world, P1, [login, Id1, "654321"]),
+    ?assertEqual(ok, ToLogin),
+    %% who
+    ?assertMatch(Id1, ss_world:call2(?world, P1, who)),
+    ?assertMatch(ok, ss_world:call2(?world, P1, logout)),
+    ?assertMatch(undefined, ss_world:call2(?world, P1, who)),
 
     %% stop the world
+    ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
     ss_world:stop2(?world).

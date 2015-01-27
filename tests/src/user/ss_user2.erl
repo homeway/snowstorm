@@ -25,8 +25,8 @@ model(password) -> ss_model:filter(["账户名", "密码"], model(all));
 model(_) -> [].
 
 %% helper info
-hello(#{id:=undefined}=S) -> {#{}, S};
-hello(#{db:=Db, res:=Res, id:=Id}=S) -> {Db:get(Res, Id, model(show)), S}.
+hello(#{id:=undefined}=S) -> {undefined, S};
+hello(#{db:=Db, res:=Res, id:=Id}=S) -> {Db:find(Res, Id), S}.
 who(#{id:=Id}=S) -> {Id, S}.
 
 %% login and logout
@@ -38,6 +38,6 @@ login(Id, Pass, #{db:=Db, res:=Res, id:=undefined}=S) ->
 login(_Id, _Pass, S) -> {already_login, S}.
 logout(S) -> {ok, S#{id=>undefined}}.
 
-check_password(Db, Res, UserId, Pass) ->
-    Info = Db:get(Res, UserId, model(password)),
-    ss_model:equal("密码", Info, Pass).
+check_password(Db, Res, UserId, Pass1) ->
+    #{<<"密码"/utf8>> := Pass2} = Db:find(Res, UserId),
+    Pass2 =:= Pass1.
