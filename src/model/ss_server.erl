@@ -66,29 +66,26 @@ model(Action, #{mod:=Mod}=S) -> {apply(Mod, model, [Action]), S}.
 %% db action ------------------------------------------------------
 %% Data is a db map #{Key=>Value}
 create(Data, M0, #{db:=Db, res:=Res}=S) ->
-    M = ss_model:to_model(Data, M0),
-    case ss_model:validate(ss_model:confirm_model(M)) of
-        {ok, _} -> {Db:create(Res, Data), S};
-        {error, M2} -> {{error, M2}, S}
-    end.
+    validate(Data, M0, S, fun() ->
+        Db:create(Res, Data)
+    end).
 
-update(K, Data, M, #{db:=Db, res:=Res}=S) ->
-    case ss_model:validate(ss_model:confirm_model(M)) of
-        {ok, _} -> {Db:update(Res, K, Data), S};
-        {error, M2} -> {{error, M2}, S}
-    end.
+update(K, Data, M0, #{db:=Db, res:=Res}=S) ->
+    validate(Data, M0, S, fun() ->
+        Db:update(Res, K, Data)
+    end).
 
 delete(K, #{db:=Db, res:=Res}=S) ->
-    {apply(Db, delete, [Res, K]), S}.
+    {Db:delete(Res, K), S}.
 
 find(K, #{db:=Db, res:=Res}=S) ->
-    {apply(Db, find, [Res, K]), S}.
+    {Db:find(Res, K), S}.
 
 all(#{db:=Db, res:=Res}=S) ->
-    {apply(Db, all, [Res]), S}.
+    {Db:all(Res), S}.
 
 drop(#{db:=Db, res:=Res}=S) ->
-    {apply(Db, drop, [Res]), S}.
+    {Db:drop(Res), S}.
 
 %% private ------------------------------------------------------------
 %%
@@ -110,4 +107,16 @@ handle_delegate(Mod, Fun, Args, From, S) ->
                 true -> apply(?MODULE, Fun, Args++[From, S]);
                 false -> {{error, no_action, [Mod, Fun, Args]}, S}
             end
+    end.
+
+%% validate for create and update to db
+validate(Data, M0, #{mod:=Mod}=S, Fun) ->
+    if
+        is_atom(M0) -> M1 = apply(Mod, model, [M0]);
+        true        -> M1 = M0
+    end,
+    M2 = ss_model:to_model(Data, M1),
+    case ss_model:validate(M2) of
+        {ok, _} -> {Fun(), S};
+        {error, M3} -> {{error, M3}, S}
     end.

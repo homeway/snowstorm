@@ -39,6 +39,8 @@ to_test() ->
     %% create with invalidte min length
     {error, M2} = ss_world:call2(?world, P1, [create, D2, M1]),
     ?assertMatch([{<<"账户名"/utf8>>, #{}}, {<<"密码"/utf8>>, #{}}], M2),
+    {error, M3} = ss_world:call2(?world, P1, [create, D2, password]),
+    ?assertMatch([{<<"账户名"/utf8>>, #{}}, {<<"密码"/utf8>>, #{}}], M2),
 
     %% find Id1
     ?assertMatch(#{<<"账户名"/utf8>> := "yifan", <<"密码"/utf8>> := "123456"}, ss_world:call2(?world, P1, [find, Id1])),
