@@ -12,12 +12,12 @@ to_test() ->
     %% regss ss_user1
     P1 = test_user1,
     P2 = test_user2,
-    ss_world:regss2(?world, P1, ss_user2),
+    ss_world:reg_server2(?world, P1, ss_user2),
     ?assertEqual(true, is_pid(ss_world:find2(?world, P1))),
     ?assertEqual(false, ss_world:find2(?world, P2)),
 
     %% regss ss_user2
-    ss_world:regss2(?world, P2, ss_user2),
+    ss_world:reg_server2(?world, P2, ss_user2),
     ?assertEqual(true, is_pid(ss_world:find2(?world, P2))),
 
     %% return all

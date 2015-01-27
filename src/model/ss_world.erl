@@ -4,11 +4,11 @@
 
 %% common world api
 -export([start_link2/1, start2/1, stop2/1]).
--export([all2/1, info2/2, clear2/1, destroy2/1, reg2/3, reg2/4, regss2/3, regss2/4, unreg2/2, find2/2, send2/3, call2/3]).
+-export([all2/1, info2/2, clear2/1, destroy2/1, reg2/3, reg2/4, reg_server2/3, reg_server2/4, unreg2/2, find2/2, send2/3, call2/3]).
 
 %% default world api
 -export([start_link/0, start/0, stop/0]).
--export([all/0, info/1, clear/0, destroy/0, reg/2, reg/3, regss/2, regss/3, unreg/1, find/1, send/2, call/2]).
+-export([all/0, info/1, clear/0, destroy/0, reg/2, reg/3, reg_server/2, reg_server/3, unreg/1, find/1, send/2, call/2]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -33,8 +33,8 @@ reg2(WN, PN, Mod) -> reg2(WN, PN, Mod, []).
 reg2(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
     gen_server:call(WN, {reg, PN, Mod, Args}).
 
-regss2(WN, PN, Mod) -> regss2(WN, PN, Mod, []).
-regss2(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
+reg_server2(WN, PN, Mod) -> reg_server2(WN, PN, Mod, []).
+reg_server2(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
     gen_server:call(WN, {reg, PN, ss_server, [[Mod|Args]]}).
 
 info2(WN, PN)      -> gen_server:call(WN, {info,  PN}).
@@ -49,8 +49,8 @@ destroy2(WN)       -> gen_server:call(WN, destroy).
 %% api with default name of ss_world
 reg(PN, Mod)         -> reg2(?SERVER, PN, Mod, []).
 reg(PN, Mod, Args)   -> reg2(?SERVER, PN, Mod, Args).
-regss(PN, Mod)       -> regss2(?SERVER, PN, Mod, []).
-regss(PN, Mod, Args) -> regss2(?SERVER, PN, Mod, Args).
+reg_server(PN, Mod)       -> reg_server2(?SERVER, PN, Mod, []).
+reg_server(PN, Mod, Args) -> reg_server2(?SERVER, PN, Mod, Args).
 info(PN)             -> info2(?SERVER, PN).
 unreg(PN)            -> unreg2(?SERVER, PN).
 send(PN, Msg)        -> send2(?SERVER, PN, Msg).
