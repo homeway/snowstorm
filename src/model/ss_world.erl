@@ -64,7 +64,7 @@ destroy()            -> destroy2(?SERVER).
 init([WorldName|[]]) ->
     Str = io_lib:format("~p_sup", [WorldName]),
     WorldSup = list_to_atom(lists:flatten(Str)),
-    erlang:display(ss_server_sup:start_link(WorldSup)),
+    ss_server_sup:start_link(WorldSup),
     {ok, #{world=>WorldSup}}.
 
 %% reg model process with a uniq name
