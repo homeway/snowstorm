@@ -64,7 +64,8 @@ validate(Errors1, M) ->
         length(Errors) > 0 -> R = error;
         true -> R = ok
     end,
-    {R, validate_acc(lists:flatten(Errors), confirm_model(M))}.
+    M1 = validate_acc(lists:flatten(Errors), confirm_model(M)),
+    {R, lists:reverse(M1)}.
 
 validate_acc([], M0) -> M0;
 validate_acc([{K, Error}|Rest], M0) ->

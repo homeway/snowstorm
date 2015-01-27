@@ -24,10 +24,6 @@ model() -> ss_model:confirm_model([
     {"联系人", #{type=>tags}}
 ]).
 
-%% 运行关联测试
-% to_test() ->
-%     ok.
-
 filter_test() ->
     M1 = ss_model:filter(["账户名", "EMail", "头像"], model()),
     M2 = [
@@ -50,8 +46,9 @@ drop_test() ->
     ?assertEqual(M1, M2).
 
 validate_test() ->
-    {error, M1} = ss_model:validate(ss_model:filter(["生日"], model())),
+    {error, M1} = ss_model:validate(ss_model:filter(["性别", "生日"], model())),
     M2 = [
+        {<<"性别"/utf8>>, #{value=>"女"}},
         {<<"生日"/utf8>>, #{
             validate=> [fun ?MODULE:custom_validate/2],
             error=> <<"长度必须为4"/utf8>>}}
