@@ -11,7 +11,7 @@ to_test() ->
 
     %% regss ss_user1
     P1 = test_user1,
-    ss_world:regss2(?world, P1, ss_user2),
+    ss_world:reg_server2(?world, P1, ss_user2),
     ?assertEqual(true, is_pid(ss_world:find2(?world, P1))),
 
     %% call info
@@ -63,14 +63,20 @@ to_test() ->
     %% other methods
     %%
     %% hello
-    ?assertEqual(undefined, ss_world:call2(?world, P1, hello)),
+    ?assertEqual(not_login, ss_world:call2(?world, P1, hello)),
+
     %% login
-    ToLogin = ss_world:call2(?world, P1, [login, Id1, "654321"]),
-    ?assertEqual(ok, ToLogin),
+    ?assertEqual(ok, ss_world:call2(?world, P1, [login, Id1, "654321"])),
+
+    %% status
+    ?assertMatch("已登录", ss_world:call2(?world, P1, status)),
+    ?assertMatch(ok, ss_world:call2(?world, P1, [status, "忙碌"])),
+    ?assertMatch("忙碌", ss_world:call2(?world, P1, status)),
+
     %% who
     ?assertMatch(Id1, ss_world:call2(?world, P1, who)),
     ?assertMatch(ok, ss_world:call2(?world, P1, logout)),
-    ?assertMatch(undefined, ss_world:call2(?world, P1, who)),
+    ?assertMatch(not_login, ss_world:call2(?world, P1, who)),
 
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
