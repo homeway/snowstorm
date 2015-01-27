@@ -5,10 +5,14 @@
 -export([validate/1, validate/2, required/2, max/3, min/3]).
 -export([from_model/1, to_model/1, to_model/2]).
 
-%% get value from model with key
-value(Key, Model) ->
+%% get value from model or map with key
+%% model: [{K, map()}]
+value(Key, Map) when is_map(Map) -> maps:get(ss:to_binary(Key), Map);
+value(Key, Model) when is_list(Model) ->
     V = proplists:get_value(ss:to_binary(Key), Model),
     maps:get(value, V).
+
+value(Key, Map, Default) when is_map(Map) -> maps:get(ss:to_binary(Key), Map, Default);
 value(Key, Model, Default) ->
     V = proplists:get_value(ss:to_binary(Key), Model),
     maps:get(value, V, Default).
