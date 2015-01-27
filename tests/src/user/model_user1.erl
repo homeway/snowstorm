@@ -1,5 +1,5 @@
 %% -*- mode: nitrogen -*-
--module(model_user).
+-module(model_user1).
 -compile(export_all).
 
 all() -> ss_model:confirm_model([

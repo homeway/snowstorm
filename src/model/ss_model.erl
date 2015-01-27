@@ -3,7 +3,7 @@
 -export([value/2, value/3, length/2, equal/3, set/2]).
 -export([confirm_model/1, confirm_list/1, filter/2, drop/2]).
 -export([validate/1, validate/2, custom_validate/3, required/2, max/3, min/3]).
--export([from_model/1, to_model/1, to_model/2]).
+-export([from_model/1, to_model/2]).
 
 %% get value from model or map with key
 %% model: [{K, map()}]
@@ -114,7 +114,6 @@ from_model(M) ->
     end, M),
     maps:from_list(L1).
 
-to_model(D) -> to_model(D, []).
 to_model(D1, M) ->
     D = [{ss:to_binary(K), V} || {K, V} <- maps:to_list(D1)],
     lists:map(fun({K, Field}) ->
