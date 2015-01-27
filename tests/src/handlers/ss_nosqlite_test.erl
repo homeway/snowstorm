@@ -1,6 +1,5 @@
 %% -*- mode: nitrogen -*-
 -module(ss_nosqlite_test).
--export([]).
 -include_lib("eunit/include/eunit.hrl").
 
 -define(db, ss_nosqlite).
