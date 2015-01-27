@@ -11,7 +11,7 @@
 %%%-------------------------------------------------------------------
 -module(ss_nosqlite).
 -behaviour(ss_db).
--export([create/2, create/3, update/3, patch/3, find/2, delete/2, all/1]).
+-export([create/2, create/3, update/3, find/2, delete/2, all/1, drop/1]).
 -export([init/1, search/3]).
 
 %% 表初始化
@@ -21,6 +21,13 @@ init(Table) ->
     dets:open_file(Table, [{type, set}, {file, Filename}, {repair, true}]).
 close(Table) ->
     dets:close(Table).
+
+%% 删除所有数据
+drop(Table) ->
+    init(Table),
+    R = dets:delete_all_objects(Table),
+    close(Table),
+    R.
 
 %% 创建数据，返回{ok, Id}
 %% Data应为maps类型
@@ -39,39 +46,34 @@ create(Table, Key, Data1) ->
     {ok, Id}.
 
 %% 查看
+%% 由于使用了set类型，仅返回一个结果
 %% 直接返回所查到的maps类型，方便函数级联操作
+find_bare(Table, Id) ->
+    case dets:lookup(Table, Id) of
+        [{_K, Result}|_] -> Result;
+        [] -> notfound
+    end.
 find(Table, Key) ->
     Id = ss:to_binary(Key),
     init(Table),
-    R = case dets:lookup(Table, Id) of
-        [{_K, Result}|_] -> Result;
-        Error -> erlang:display(Error), #{}
-    end,
+    R = find_bare(Table, Id),
     close(Table),
     R.
 
-%% 更新数据，返回ok | notfound
+%% 部分更新数据，返回ok | notfound
 update(Table, Key, Data1) ->
     Id = ss:to_binary(Key),
     init(Table),
-    case find(Table, Id) of
-        #{} ->
-            close(Table),{error, invalid_key};
-        Data -> 
-            OldData = ss_model:from_model(Data),
+    case find_bare(Table, Id) of
+        notfound ->
+            close(Table),{error, notfound};
+        OldData -> 
             Time = ss_time:now_to_iso(),
             Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
             dets:insert(Table, {Id, Data}),
             close(Table),
             ok
     end.
-
-%% 部分更新
-patch(Table, Key, Data) ->
-    Id = ss:to_binary(Key),
-    Old = find(Table, Id),
-    New = maps:merge(Old, Data),
-    update(Table, Id, New).
 
 %% 删除
 delete(Table, Key) ->

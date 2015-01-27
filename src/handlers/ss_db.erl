@@ -9,6 +9,6 @@
 -callback create(pos(), id(), data()) -> {ok, id()}.
 -callback find(pos(), id()) -> data().
 -callback update(pos(), id(), data()) -> ok|{error, invalid_key}.
--callback patch(pos(), id(), data()) -> ok|{error, invalid_key}.
 -callback delete(pos(), id()) -> ok.
 -callback all(pos()) -> [data()].
+-callback drop(pos()) -> ok.
