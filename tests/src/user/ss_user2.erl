@@ -21,7 +21,7 @@ model(all) -> ss_model:confirm_model([
     {"联系人", #{type=>tags}}
 ]);
 model(show) -> ss_model:drop(["密码"], model(all));
-model(password) -> ss_model:filter(["账户", "密码"], model(all));
+model(password) -> ss_model:filter(["账户名", "密码"], model(all));
 model(_) -> [].
 
 %% helper info

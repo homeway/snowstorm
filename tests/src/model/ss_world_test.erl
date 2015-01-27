@@ -2,7 +2,7 @@
 -module(ss_world_test).
 -include_lib("eunit/include/eunit.hrl").
 
--define(world, test_world).
+-define(world, to_test_ss_world).
 to_test() ->
     %% 启动world
     ss_world:start2(?world),
@@ -22,11 +22,6 @@ to_test() ->
 
     %% return all
     ?assertMatch(2, length(ss_world:all2(?world))),
-
-    %% call P1/ss_user2
-    ?assertMatch(#{db:=_Db, res:=_Res}, ss_world:call2(?world, P1, info)),
-    ?assertMatch([], ss_world:call2(?world, P1, [model, undefined])),
-    ?assertMatch([{_K, #{}}|_], ss_world:call2(?world, P1, [model, all])),
 
     %% unreg ss_user2
     ss_world:unreg2(?world, P2),
