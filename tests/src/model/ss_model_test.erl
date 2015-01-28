@@ -44,18 +44,6 @@ drop_test() ->
     ]),
     ?assertEqual(M1, M2).
 
-validate_test() ->
-    {error, M1} = ss_model:validate(ss_model:filter([account, sex, email, birthday], model())),
-    M2 = ss_model:confirm_model([
-        {account, #{value=>"yifan"}},
-        {sex, #{value=>"女"}},
-        {email, #{validate=>[required], error=> <<"字段不能为空"/utf8>>}},
-        {birthday, #{
-            validate=> [fun ?MODULE:custom_validate/2],
-            error=> <<"长度必须为4"/utf8>>}}
-    ]),
-    ?assertEqual(M1, M2).
-
 set_test() ->
     M1 = ss_model:filter([account, password], model()),
     M2 = ss_model:set([{account, "adi"}, {password, "aabbcc"}], M1),

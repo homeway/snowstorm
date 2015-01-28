@@ -14,8 +14,6 @@ to_test() ->
     ss_world:reg_server2(?world, P1, ss_user),
     ?assertEqual(true, is_pid(ss_world:find2(?world, P1))),
 
-    %% call db methods
-
     %% clear data
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
     ?assertEqual([], ss_world:call2(?world, P1, all)),
@@ -23,10 +21,8 @@ to_test() ->
     %% create an account with yifan
     M1 = ss_world:call2(?world, P1, [model, password]),
     D1 = #{account => "yifan", password => "123456"},
-    {ok, Id1} = ss_world:call2(?world, P1, [create, D1, M1]),
-    ?assertEqual(true, is_binary(Id1)),
+    ?assertMatch({ok, Id1}, ss_world:call2(?world, P1, [create, D1, M1])),
     ?assertMatch({error, _}, ss_world:call2(?world, P1, [create, D1, M1])),
-
 
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),

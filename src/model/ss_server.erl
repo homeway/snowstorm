@@ -116,30 +116,7 @@ validate(Data, M0, #{mod:=Mod}=S, Fun) ->
         true        -> M1 = M0
     end,
     M2 = ss_model:to_model(Data, M1),
-    case validate2(M2, S) of
+    case ss_validate:check(M2, S) of
         {ok, _} -> {Fun(), S};
         {error, M3} -> {{error, M3}, S}
     end.
-
-validate2(M, #{db:=Db, res:=Res}) ->
-    Errors = lists:map(fun({K, Field}) ->
-        Funs = maps:get(validate, Field, []),
-        lists:map(fun(Fun) ->
-            case Fun of
-                uniq -> uniq(Db, Res, K);
-                required -> ss_model:required(K, M);
-                {min, Len} when is_integer(Len) -> ss_model:min(K, M, Len);
-                {max, Len} when is_integer(Len) -> ss_model:max(K, M, Len);
-                _ when is_function(Fun) -> Fun(K, M);
-                {F, Args} when is_function(F) -> F(K, M, Args);
-                {Module, F, A} when is_atom(Module) and is_atom(F) and is_list(A) -> apply(Module, F, [K, M|A])
-            end
-        end, Funs)
-    end, M),
-    ss_model:validate(Errors, M).
-
-%% some validate method required db or process module
-uniq(Db, Res, K) ->
-    ss_model:custom_validate(K, <<"字段必须唯一"/utf8>>, fun() ->
-        Db:find(Res, K) =/= notfound
-    end).
