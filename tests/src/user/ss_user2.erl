@@ -2,7 +2,7 @@
 -module(ss_user2).
 -behaviour(ss_server).
 -export([init/1, model/1]).
--export([hello/1, status/1, status/2, who/1, login/3, logout/1]).
+-export([hello/1, status/1, status/2, who/1, login/3, logout/1, notify/2]).
 
 %% ss_server api
 init(_) -> {ok, #{db=>ss_nosqlite, res=>user, id=>not_login}}.
@@ -25,26 +25,53 @@ model(password) -> ss_model:filter(["账户名", "密码"], model(all));
 model(_) -> [].
 
 %% helper info
-hello(#{id:=not_login}=S) -> {not_login, S};
-hello(#{db:=Db, res:=Res, id:=Id}=S) -> {Db:find(Res, Id), S}.
 who(#{id:=Id}=S) -> {Id, S}.
+hello(#{db:=Db, res:=Res, id:=Id}=S) ->
+    force_login(fun() ->
+        {Db:find(Res, Id), S}
+    end, S).
 
 %% user state and sign string
 %% 读取状态
-status(#{id:=not_login}=S) -> {not_login, S};
-status(S) -> {maps:get(status, S, "已登录"), S}.
+status(S) ->
+    force_login(fun() ->
+        {maps:get(status, S, "已登录"), S}
+    end, S).
 %% 设置状态
-status(_, #{id:=not_login}=S) -> {not_login, S};
-status(Status, S) -> {ok, S#{status=>Status}}.
+status(Status, S) ->
+    force_login(fun() ->
+        {ok, S#{status=>Status}}
+    end, S).
 
 %% login and logout
-login(Id, Pass, #{db:=Db, res:=Res, id:=not_login}=S) ->
-    case check_password(Db, Res, Id, Pass) of
-        true -> {ok, S#{id=>Id}};
-        false -> {invalid_user_or_pass, S}
+login(User, Pass, #{db:=Db, res:=Res, id:=not_login}=S) ->
+    case check_password(Db, Res, User, Pass) of
+        {true, Id} -> {ok, S#{id=>Id}};
+        {error, Reason} -> {{error, Reason}, S}
     end;
 login(_Id, _Pass, S) -> {already_login, S}.
 logout(S) -> {ok, S#{id=>not_login}}.
 
-check_password(Db, Res, UserId, Pass) ->
-    ss_model:equal("密码", Db:find(Res, UserId), Pass).
+check_password(Db, Res, Account, Pass) ->
+    User = Db:find(Res, "账户名", Account),
+    case User of
+        notfound -> {error, "账户不存在"};
+        #{<<"_key">> :=Id} ->
+            case ss_model:equal("密码", User, Pass) of
+                true -> {true, Id};
+                false -> {error, "密码不正确"}
+            end
+    end.
+
+%% force login
+force_login(Fun, S) ->
+    case maps:get(id, S, not_login) of
+        not_login -> {not_login, S};
+        _ -> Fun()
+    end.
+
+%% 收通知
+notify(Content, S) ->
+    force_login(fun() ->
+        Content
+    end, S).

@@ -9,6 +9,7 @@ drop(Tab) -> ?db:drop(Tab).
 create(Tab, Data) -> ?db:create(Tab, Data).
 create(Tab, Id, Data) -> ?db:create(Tab, Id, Data).
 find(Tab, Id) -> ?db:find(Tab, Id).
+find(Tab, Id, V) -> ?db:find(Tab, Id, V).
 update(Tab, Id, Data) -> ?db:update(Tab, Id, Data).
 delete(Tab, Id) -> ?db:delete(Tab, Id).
 all(Tab) -> ?db:all(Tab).
@@ -27,6 +28,7 @@ db_test() ->
     ?assertEqual(<<"001">>, Id2),
     %% find
     ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, find(?tab, Id1)),
+    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, find(?tab, name, "yifan")),
     %% update
     ?assertEqual(ok, update(?tab, Id1, D2)),
     ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 11}, find(?tab, Id1)),

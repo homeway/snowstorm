@@ -11,7 +11,7 @@
 %%%-------------------------------------------------------------------
 -module(ss_nosqlite).
 -behaviour(ss_db).
--export([create/2, create/3, update/3, find/2, delete/2, all/1, drop/1]).
+-export([create/2, create/3, update/3, find/2, find/3, delete/2, all/1, drop/1]).
 -export([init/1, search/3]).
 
 %% 表初始化
@@ -59,6 +59,18 @@ find(Table, Key) ->
     R = find_bare(Table, Id),
     close(Table),
     R.
+%% 使用任意字段查询
+find(Table, Key1, Value) ->
+    Key = ss:to_binary(Key1),
+    init(Table),
+    R1 = search(Table, fun(Obj) ->
+        maps:get(Key, Obj, no_this_value) =:= Value
+    end, [{count, 1}]),
+    close(Table),
+    case R1 of
+        [R|_] -> R;
+        [] -> notfound
+    end.
 
 %% 部分更新数据，返回ok | notfound
 update(Table, Key, Data1) ->
@@ -67,7 +79,7 @@ update(Table, Key, Data1) ->
     case find_bare(Table, Id) of
         notfound ->
             close(Table),{error, notfound};
-        OldData -> 
+        OldData ->
             Time = ss_time:now_to_iso(),
             Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
             dets:insert(Table, {Id, Data}),
@@ -84,27 +96,29 @@ delete(Table, Key) ->
 
 %% 搜索
 %% Cond 条件
-%% Option 选项: [{start, Start}, {row, Row}, {sort, Sort}]
-search(Table, Fun, _Options) ->
+%% Option 选项: [{start, Start}, {count, Count}, {sort, Sort}]
+search(Table, Fun, Options) ->
     init(Table),
-    R = search_acc(Table, dets:first(Table), Fun, []),
+    Count = proplists:get_value(count, Options, -1),
+    R = search_acc(Table, dets:first(Table), Fun, [], Count),
     close(Table),
     R.
 
 %% 在查询结果中插入<<"_key">>，实际上数据库并不保存这个字段
 %% 但其他两个系统字段<<"_lastmodified_at">>和<<"_created_at">>是要保存的
-search_acc(_Table, '$end_of_table', _Fun, Acc) ->
+search_acc(_Table, '$end_of_table', _Fun, Acc, _Count) ->
     Acc;
-search_acc(Table, K, Fun, Acc) ->
+search_acc(Table, K, Fun, Acc, Count) ->
     [{_, Obj1}|_T] = dets:lookup(Table, K),
     Obj = maps:put(<<"_key">>, K, Obj1),
     case Fun(Obj) of
-        true ->
-            search_acc(Table, dets:next(Table, K), Fun, [Obj|Acc]);
+        true when (Count =:= -1) or (length(Acc) < Count) ->
+            search_acc(Table, dets:next(Table, K), Fun, [Obj|Acc], Count);
+        true -> Acc;
         false ->
-            search_acc(Table, dets:next(Table, K), Fun, Acc)
+            search_acc(Table, dets:next(Table, K), Fun, Acc, Count)
     end.
 
 %% 遍历所有数据
 all(Table) ->
-    search(Table, fun(_K) -> true end, []).
+    search(Table, fun(_Obj) -> true end, []).

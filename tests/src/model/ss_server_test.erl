@@ -26,7 +26,7 @@ to_test() ->
     %% clear data
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
     ?assertEqual([], ss_world:call2(?world, P1, all)),
-    
+
     %% create
     M1 = ss_world:call2(?world, P1, [model, password]),
     D1 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "123456"},
@@ -50,24 +50,15 @@ to_test() ->
     ?assertEqual(ok, ss_world:call2(?world, P1, [update, Id1, D3, M_PassOnly])),
     ?assertMatch(#{<<"账户名"/utf8>> := "yifan", <<"密码"/utf8>> := "654321"}, ss_world:call2(?world, P1, [find, Id1])),
 
-    %% all
-    ?assertEqual(1, length(ss_world:call2(?world, P1, all))),
-    {ok, _Id2} = ss_world:call2(?world, P1, [create, D1, M1]),
-    {ok, Id3} = ss_world:call2(?world, P1, [create, D1, M1]),
-    ?assertEqual(3, length(ss_world:call2(?world, P1, all))),
-
-    %% delete Id3
-    ?assertEqual(ok, ss_world:call2(?world, P1, [delete, Id3])),
-    ?assertEqual(2, length(ss_world:call2(?world, P1, all))),
-    ?assertMatch(notfound, ss_world:call2(?world, P1, [find, Id3])),
-
     %% other methods
     %%
     %% hello
     ?assertEqual(not_login, ss_world:call2(?world, P1, hello)),
 
     %% login
-    ?assertEqual(ok, ss_world:call2(?world, P1, [login, Id1, "654321"])),
+    ?assertMatch({error, "账户不存在"}, ss_world:call2(?world, P1, [login, "nothisuser", "111111"])),
+    ?assertMatch({error, "密码不正确"}, ss_world:call2(?world, P1, [login, "yifan", "111111"])),
+    ?assertEqual(ok, ss_world:call2(?world, P1, [login, "yifan", "654321"])),
 
     %% status
     ?assertMatch("已登录", ss_world:call2(?world, P1, status)),
@@ -78,6 +69,17 @@ to_test() ->
     ?assertMatch(Id1, ss_world:call2(?world, P1, who)),
     ?assertMatch(ok, ss_world:call2(?world, P1, logout)),
     ?assertMatch(not_login, ss_world:call2(?world, P1, who)),
+
+    %% all
+    ?assertEqual(1, length(ss_world:call2(?world, P1, all))),
+    {ok, _Id2} = ss_world:call2(?world, P1, [create, D1, M1]),
+    {ok, Id3} = ss_world:call2(?world, P1, [create, D1, M1]),
+    ?assertEqual(3, length(ss_world:call2(?world, P1, all))),
+
+    %% delete Id3
+    ?assertEqual(ok, ss_world:call2(?world, P1, [delete, Id3])),
+    ?assertEqual(2, length(ss_world:call2(?world, P1, all))),
+    ?assertMatch(notfound, ss_world:call2(?world, P1, [find, Id3])),
 
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
