@@ -11,10 +11,13 @@ value(Key, Model) when is_list(Model) ->
     V = proplists:get_value(ss:to_binary(Key), Model),
     maps:get(value, V).
 
-value(Key, Map, Default) when is_map(Map) -> maps:get(ss:to_binary(Key), Map, Default);
+value(Key, Map, Default) when is_map(Map) ->
+    maps:get(ss:to_binary(Key), Map, Default);
 value(Key, Model, Default) ->
-    V = proplists:get_value(ss:to_binary(Key), Model),
-    maps:get(value, V, Default).
+    case proplists:get_value(ss:to_binary(Key), Model) of
+        undefined -> Default;
+        V -> maps:get(value, V, Default)
+    end.
 
 %% length of value in model
 length(Key, Model) ->
