@@ -1,15 +1,34 @@
 %% -*- mode: nitrogen -*-
+%%%-------------------------------------------------------------------
+%%% @author homeway <homeway.xue@gmail.com>
+%%% @copyright (C) 2015, homeway
+%%% @doc
+%%% Start2(WorldName) will start ss_world and ss_server_sup
+%%%   with registered name  WorldName and {WorldName}_sup
+%%%
+%%% Start() is a fast method of start(?MODULE).
+%%%
+%%% You can register an otp process to ss_world and ss_server_sup,
+%%% but I encouraged you register an ss_server process. There are many useful
+%%% feature with ss_server such as crud of database.
+%%%
+%%% @end
+%%% Created : 28 Jan 2015 by homeway <homeway.xue@gmail.com>
+%%%-------------------------------------------------------------------
 -module(ss_world).
 -behaviour(gen_server).
 
 %% common world api
 -export([start_link2/1, start2/1, stop2/1]).
--export([all2/1, info2/2, clear2/1, destroy2/1, reg2/3, reg2/4, reg_server2/3, reg_server2/4, unreg2/2, find2/2, send2/3, call2/3]).
+-export([all2/1, info2/2, clear2/1, destroy2/1, find2/2, send2/3, call2/3,
+    reg2/3, reg2/4, reg_server2/3, reg_server2/4, unreg2/2]).
 
 %% default world api
 -export([start_link/0, start/0, stop/0]).
--export([all/0, info/1, clear/0, destroy/0, reg/2, reg/3, reg_server/2, reg_server/3, unreg/1, find/1, send/2, call/2]).
+-export([all/0, info/1, clear/0, destroy/0, find/1, send/2, call/2,
+    reg/2, reg/3, reg_server/2, reg_server/3, unreg/1]).
 
+%% gen_server callback
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
