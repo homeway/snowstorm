@@ -8,7 +8,7 @@
 init(_) -> {ok, #{db=>ss_nosqlite, res=>user, id=>not_login}}.
 
 model(all) -> ss_model:confirm_model([
-    {account, #{validate=>[required]}},
+    {account, #{validate=>[required, uniq]}},
     {password, #{type=>password, validate=>[required, {min, 6}]}},
     {email, #{}},
     {nickname, #{}},
