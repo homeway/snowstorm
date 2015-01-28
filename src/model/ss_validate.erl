@@ -75,9 +75,13 @@ uniq(FName, M, #{db:=Db, res:=Res}) ->
     V = ss_model:value(FName, M),
     custom(FName, "field must be uniq", fun() ->
         case Db:find(Res, FName, V) of
-            notfound -> true;
-            #{<<"_key">> := ExistKey} -> ss_model:equal("_key", M, ExistKey);
-            _ -> false
+            notfound ->
+                true;
+            #{<<"_key">> := ExistKey} ->
+                case ss_model:value(<<"_key">>, M, undefined) of
+                    ExistKey -> true;
+                    _ -> false
+                end
         end
     end);
 uniq(K, _, _) ->

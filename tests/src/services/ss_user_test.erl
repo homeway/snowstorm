@@ -20,9 +20,10 @@ to_test() ->
 
     %% create an account with yifan
     M1 = ss_world:call2(?world, P1, [model, password]),
-    D1 = #{account => "yifan", password => "123456"},
-    ?assertMatch({ok, Id1}, ss_world:call2(?world, P1, [create, D1, M1])),
+    D1 = #{<<"account">> => "yifan", <<"password">> => "123456"},
+    {ok, Id1} = ss_world:call2(?world, P1, [create, D1, M1]),
     ?assertMatch({error, _}, ss_world:call2(?world, P1, [create, D1, M1])),
+    
 
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),

@@ -28,7 +28,7 @@ db_test() ->
     ?assertEqual(<<"001">>, Id2),
     %% find
     ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, find(?tab, Id1)),
-    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, find(?tab, name, "yifan")),
+    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, find(?tab, "name", "yifan")),
     %% update
     ?assertEqual(ok, update(?tab, Id1, D2)),
     ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 11}, find(?tab, Id1)),

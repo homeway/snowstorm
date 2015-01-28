@@ -34,7 +34,7 @@ check_model_test() ->
     ?assertEqual(M1, M2).
 check_db_test() ->
     ?db:drop(?res),
-    D0 = #{account=>"yifan", email=>"yifan@gmail", birthday=>"0701"},
+    D0 = #{<<"account">> =>"yifan", <<"email">> =>"yifan@gmail", <<"birthday">> =>"0701"},
     M0 = model(),
     S = #{db=>?db, res=>?res},
     ?assertMatch({ok, _}, ss_validate:check(ss_model:to_model(D0, M0), S)),
