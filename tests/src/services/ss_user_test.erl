@@ -11,7 +11,7 @@ to_test() ->
 
     %% reg_server ss_user
     P1 = test_user1,
-    ss_world:reg_server2(?world, P1, ss_user),
+    ss_world:reg_server2(?world, P1, ss_user, [#{res=>ss_user2}]),
     ?assertEqual(true, is_pid(ss_world:find2(?world, P1))),
 
     %% clear data
@@ -20,7 +20,7 @@ to_test() ->
 
     %% create an account with yifan
     M1 = ss_world:call2(?world, P1, [model, password]),
-    D1 = #{<<"account">> => "yifan", <<"password">> => "123456"},
+    D1 = #{account => "yifan", password => "123456"},
     {ok, Id1} = ss_world:call2(?world, P1, [create, D1, M1]),
 
     %% account must be uniq

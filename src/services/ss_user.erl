@@ -3,12 +3,17 @@
 -behaviour(ss_server).
 -export([init/1, model/1]).
 %% call callback
--export([hello/1, status/1, status/2, who/1, login/3, logout/1, notify/2]).
+-export([hello/1, status/1, status/2, who/1, login/3, logout/1]).
 %% cast callback
--export([hello/2]).
+-export([hello/2, notify/2]).
 
 %% ss_server api
-init(_) -> {ok, #{db=>ss_nosqlite, res=>user, id=>not_login}}.
+init([Config]) when is_map(Config) ->
+    Default = #{db=>ss_nosqlite, res=>user, id=>not_login},
+    {ok, maps:merge(Default, Config)};
+init([]) ->
+    Default = #{db=>ss_nosqlite, res=>user, id=>not_login},
+    {ok, Default}.
 
 model(all) -> ss_model:confirm_model([
     {account, #{validate=>[required, uniq]}},
@@ -29,17 +34,28 @@ model(message) -> ss_model:confirm_model([
 ]);
 model(_) -> [].
 
-%% helper info
+%% call who
 who(#{id:=Id}=S) -> {Id, S}.
+
+%% call hello
 hello(#{db:=Db, res:=Res, id:=Id}=S) ->
     force_login(fun() ->
         {Db:find(Res, Id), S}
     end, S).
+
+%% cast hello
 hello(From, S) ->
-    R = force_login(fun() ->
-        ok
-    end, S),
-    From ! R.
+    force_login(fun() ->
+        hi
+    end, From, S),
+    {ok, S}.
+
+%% cast notify
+notify({From, Content}, S) ->
+    force_login(fun() ->
+        Content
+    end, From, S),
+    {ok, S}.
 
 %% user state and sign string
 %% 读取状态
@@ -79,9 +95,8 @@ force_login(Fun, S) ->
         not_login -> {not_login, S};
         _ -> Fun()
     end.
-
-%% 收通知
-notify(Content, S) ->
-    force_login(fun() ->
-        Content
-    end, S).
+force_login(Fun, From, S) ->
+    case maps:get(id, S, not_login) of
+        not_login -> From ! not_login;
+        _ -> From ! Fun()
+    end.
