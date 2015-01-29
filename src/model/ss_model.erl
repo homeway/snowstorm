@@ -28,13 +28,13 @@ value(Key, Model, Default) ->
 length(Field) ->
     case maps:get(value, Field, <<>>) of
         <<>> -> 0;
-        V -> erlang:length(V)
+        V -> erlang:length(ss:to_list(V))
     end.
 %% length of value in model
 length(Key, Model) ->
     case value(Key, Model, <<>>) of
         <<>> -> 0;
-        V -> erlang:length(V)
+        V -> erlang:length(ss:to_list(V))
     end.
 
 %% equal to value in field

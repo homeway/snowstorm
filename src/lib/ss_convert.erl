@@ -20,7 +20,8 @@ to_integer(F) when is_float(F)   -> round(F).
 -spec to_list(term()) -> list().
 to_list(A) when is_atom(A)   -> atom_to_list(A);
 to_list(B) when is_binary(B) -> unicode:characters_to_list(B);
-to_list(L) when is_list(L)   -> L.
+to_list(L) when is_list(L)   -> L;
+to_list(I) when is_integer(I) -> integer_to_list(I).
 
 -spec to_atom(term()) -> atom().
 to_atom(A) when is_atom(A)   -> A;
