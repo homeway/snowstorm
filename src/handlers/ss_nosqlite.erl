@@ -41,7 +41,8 @@ create(Table, Key, Data1) ->
     init(Table),
     Time = ss_time:now_to_iso(),
     Data = Data1#{<<"_created_at">> => Time, <<"_lastmodified_at">> => Time},
-    dets:insert(Table, {Id, Data}),
+    L = [{ss:to_binary(K), V} || {K, V} <- maps:to_list(Data)],
+    dets:insert(Table, {Id, maps:from_list(L)}),
     close(Table),
     {ok, Id}.
 
@@ -81,7 +82,9 @@ update(Table, Key, Data1) ->
             close(Table),{error, notfound};
         OldData ->
             Time = ss_time:now_to_iso(),
-            Data = maps:merge(OldData, Data1#{<<"_lastmodified_at">> => Time}),
+            L = [{ss:to_binary(K), V} || {K, V} <- maps:to_list(Data1)],
+            Data2 = maps:from_list(L),
+            Data = maps:merge(OldData, Data2#{<<"_lastmodified_at">> => Time}),
             dets:insert(Table, {Id, Data}),
             close(Table),
             ok
