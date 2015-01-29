@@ -1,13 +1,19 @@
 %% -*- mode: nitrogen -*-
 -module(ss_validate).
 -export([check/1, check/2, merge/2, custom/3]).
--export([required/2, max/3, min/3, uniq/3]).
+-export([required/2, max/3, min/3, int/2, list/2, select/2, uniq/3]).
 
 %% validate model self
 check(M) -> check(M, #{}).
 check(M, S) ->
     Errors = lists:map(fun({K, Field}) ->
-        Funs = maps:get(validate, Field, []),
+        Type = maps:get(type, Field, undefined),
+        case lists:member(Type, [int, list, select]) of
+            true ->
+                Funs = [{?MODULE, Type, []}|maps:get(validate, Field, [])];
+            false ->
+                Funs = maps:get(validate, Field, [])
+        end,
         lists:map(fun(Fun) ->
             case Fun of
                 uniq -> uniq(K, M, S);
@@ -87,4 +93,37 @@ uniq(FName, M, #{db:=Db, res:=Res}) ->
 uniq(K, _, _) ->
     custom(K, "not enough db info", fun() ->
         false
+    end).
+
+%% type check
+int(K, M) ->
+    Field = proplists:get_value(K, M),
+    custom(K, "the value must be integer", fun() ->
+        case maps:get(value, Field, <<>>) of
+            <<>> -> true;
+            V -> is_integer(V)
+        end
+    end).
+
+list(K, M) ->
+    Field = proplists:get_value(K, M),
+    custom(K, "the value must be a list", fun() ->
+        case maps:get(value, Field, <<>>) of
+            <<>> -> true;
+            V -> is_list(V)
+        end
+    end).
+
+%% select
+%% the value must belongs options when field type is select
+%% example: [sex, #{type=> select, options=> [mail, femail]}]
+select(K, M) ->
+    Field = proplists:get_value(K, M),
+    custom(K, "the value must be in select options", fun() ->
+        case maps:get(value, Field, <<>>) of
+            <<>> -> true;
+            V ->
+                Options = maps:get(options, Field, []),
+                lists:member(V, Options)
+        end
     end).

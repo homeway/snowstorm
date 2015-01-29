@@ -14,18 +14,18 @@ custom_validate(K, M) ->
 
 model() -> ss_model:confirm_model([
     {account, #{validate=>[required, uniq]}},
-    {sex, #{value=>"女"}},
+    {sex, #{type=>select, options=>["男", "女"], value=>"女"}},
     {email, #{validate=>[required]}},
     {birthday, #{validate=> [fun ?MODULE:custom_validate/2]}}
 ]).
 
 check_model_test() ->
     ?db:drop(?res),
-    M0 = ss_model:set([{account, "yifan"}], model()),
+    M0 = ss_model:set([{account, "yifan"}, {sex, femail}], model()),
     {error, M1} = ss_validate:check(M0, #{db=>?db, res=>?res}),
     M2 = ss_model:confirm_model([
         {account, #{value=>"yifan", validate=>[required, uniq]}},
-        {sex, #{value=>"女"}},
+        {sex, #{type=>select, options=>["男", "女"], value=>femail, error=> "the value must be in select options"}},
         {email, #{validate=>[required], error=> <<"字段不能为空"/utf8>>}},
         {birthday, #{
             validate=> [fun ?MODULE:custom_validate/2],
