@@ -1,9 +1,9 @@
 %% -*- mode: nitrogen -*-
 -module(onsync).
--export([go/0]).
+-export([go/0, stop/0]).
 
 go() ->
-    application:start(sync),
+    sync:go(),
     application:start(snowstorm),
     application:start(sample),
     RunTests = fun(Mods) ->
@@ -26,3 +26,5 @@ go() ->
         end, lists:flatten(ToTest1 ++ ToTest2))
     end,
     sync:onsync(RunTests).
+
+stop() -> sync:stop().
