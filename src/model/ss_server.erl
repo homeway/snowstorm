@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 -export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([info/1, model/2, create/3, update/4, delete/2, find/2, all/1, drop/1]).
+-export([info/1, model/2, connect/2, create/3, update/4, delete/2, find/2, all/1, drop/1]).
 
 %% ss_server behaviour define ---------------------------------------
 %%
@@ -22,14 +22,14 @@
 
 %% help module to start
 %% the params must be a list and the first element is module
-start_link([Mod|Args]) -> gen_server:start_link(?MODULE, [Mod|Args], []).
+start_link(Args) -> gen_server:start_link(?MODULE, Args, []).
 
 %% gen_server api
 %%
 
-init([Mod|Args]) ->
+init([World, Mod|Args]) ->
     {Flag, S0} = apply(Mod, init, [Args]),
-    {Flag, S0#{mod=>Mod}}.
+    {Flag, S0#{world=>World, mod=>Mod}}.
 
 %% delegate handle_call-----------------------------------------------
 %%
@@ -63,6 +63,18 @@ info(S) -> {S, S}.
 %% query model ----------------------------------------------------
 %%
 model(Action, #{mod:=Mod}=S) -> {apply(Mod, model, [Action]), S}.
+
+%% connect to model -----------------------------------------------
+%%    for example, n2o websocket can receive message by messge slots
+connect(Pid, #{world:=World}=S) ->
+    Slots = maps:get(slots, S, []),
+    case lists:member(Pid, Slots) of
+        true -> {{ok, alread_connected}, S};
+        false ->
+            erlang:display(World),
+            erlang:display(Pid),
+            {{ok, connected}, S#{slots=>[Pid|Slots]}}
+    end.
 
 %% db action ------------------------------------------------------
 %% Data is a db map #{Key=>Value}

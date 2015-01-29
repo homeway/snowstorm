@@ -81,15 +81,15 @@ clear()              -> clear2(?SERVER).
 destroy()            -> destroy2(?SERVER).
 
 %% start the models supervisor after the world start
-init([WorldName|[]]) ->
-    Str = io_lib:format("~p_sup", [WorldName]),
+init([World|[]]) ->
+    Str = io_lib:format("~p_sup", [World]),
     WorldSup = list_to_atom(lists:flatten(Str)),
     ss_server_sup:start_link(WorldSup),
-    {ok, #{world=>WorldSup}}.
+    {ok, #{world=>World, world_sup=>WorldSup}}.
 
 %% reg model process with a uniq name
-handle_call({reg, Name, Mod, Args}, _From, #{world:=World}=S0) ->
-    Reply = case ss_server_sup:start_child(World, Name, Mod, Args) of
+handle_call({reg, Name, Mod, [Args]}, _From, #{world:=World, world_sup:=WorldSup}=S0) ->
+    Reply = case ss_server_sup:start_child(WorldSup, Name, Mod, [[World|Args]]) of
         {ok, Pid} -> Pid;
         {error,{already_started, Pid}} -> Pid;
         Error -> Error
@@ -97,55 +97,55 @@ handle_call({reg, Name, Mod, Args}, _From, #{world:=World}=S0) ->
     {reply, Reply, S0};
 
 %% unreg process with uniq name
-handle_call({unreg, Name}, _From, #{world:=World}=S0) ->
-    supervisor:terminate_child(World, Name),
-    R = supervisor:delete_child(World, Name),
+handle_call({unreg, Name}, _From, #{world_sup:=WorldSup}=S0) ->
+    supervisor:terminate_child(WorldSup, Name),
+    R = supervisor:delete_child(WorldSup, Name),
     {reply, R, S0};
 
 %% find model process with uniq name
-handle_call({find, Name}, _From, #{world:=World}=S0) ->
-    S = supervisor:which_children(World),
+handle_call({find, Name}, _From, #{world_sup:=WorldSup}=S0) ->
+    S = supervisor:which_children(WorldSup),
     case lists:keyfind(Name, 1, S) of
         false -> {reply, false, S0};
         {Name, Pid, _, _} -> {reply, Pid, S0}
     end;
 
 %% call handle_call in model process
-handle_call({call, Name, Req}, _From, #{world:=World}=S0) ->
-    S = supervisor:which_children(World),
+handle_call({call, Name, Req}, _From, #{world_sup:=WorldSup}=S0) ->
+    S = supervisor:which_children(WorldSup),
     case lists:keyfind(Name, 1, S) of
         false -> {reply, false, S0};
         {Name, Pid, _, _} -> {reply, gen_server:call(Pid, Req), S0}
     end;
 
 %% list all process in ss_world
-handle_call(all, _From, #{world:=World}=S0) ->
-    S = supervisor:which_children(World),
+handle_call(all, _From, #{world_sup:=WorldSup}=S0) ->
+    S = supervisor:which_children(WorldSup),
     {reply, [{Name, Pid} || {Name, Pid, _, _} <- S], S0};
 
 %% list the process info with uniq name
-handle_call({info, Name}, _From, #{world:=World}=S0) ->
-    S = supervisor:which_children(World),
+handle_call({info, Name}, _From, #{world_sup:=WorldSup}=S0) ->
+    S = supervisor:which_children(WorldSup),
     case lists:keyfind(Name, 1, S) of
         false -> {reply, false, S0};
         {Name, Pid, _, _} -> {reply, erlang:process_info(Pid), S0}
     end;
 
 %% clear undefined process in ss_world
-handle_call(clear, _From, #{world:=World}=S0) ->
-    OldS = supervisor:which_children(World),
-    [supervisor:delete_child(World, Name) || {Name, Pid, _, _} <- OldS, Pid =:= undefined],
-    NewS = supervisor:which_children(World),
+handle_call(clear, _From, #{world_sup:=WorldSup}=S0) ->
+    OldS = supervisor:which_children(WorldSup),
+    [supervisor:delete_child(WorldSup, Name) || {Name, Pid, _, _} <- OldS, Pid =:= undefined],
+    NewS = supervisor:which_children(WorldSup),
     {reply, length(OldS) - length(NewS), S0};
 
 %% clear undefined process in ss_world
-handle_call(destroy, _From, #{world:=World}=S0) ->
-    OldS = supervisor:which_children(World),
+handle_call(destroy, _From, #{world_sup:=WorldSup}=S0) ->
+    OldS = supervisor:which_children(WorldSup),
     lists:foreach(fun({Name, _, _, _}) ->
-        supervisor:terminate_child(World, Name),
-        supervisor:delete_child(World, Name)
+        supervisor:terminate_child(WorldSup, Name),
+        supervisor:delete_child(WorldSup, Name)
     end, OldS),
-    NewS = supervisor:which_children(World),
+    NewS = supervisor:which_children(WorldSup),
     {reply, length(OldS) - length(NewS), S0};
 
 %% not support action
@@ -153,8 +153,8 @@ handle_call(_, _, S) ->
     {reply, {error, not_support}, S}.
 
 %% cast message to process
-handle_cast({send, Name, Msg}, #{world:=World}=S0) ->
-    S = supervisor:which_children(World),
+handle_cast({send, Name, Msg}, #{world_sup:=WorldSup}=S0) ->
+    S = supervisor:which_children(WorldSup),
     case lists:keyfind(Name, 1, S) of
         {Name, Pid, _, _} -> gen_server:cast(Pid, Msg);
         _ -> not_cast
