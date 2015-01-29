@@ -25,6 +25,7 @@ model(all) -> ss_model:confirm_model([
 ]);
 model(show) -> ss_model:drop([password, pub_to], model(all));
 model(password) -> ss_model:filter([account, password], model(all));
+model(pub_to) -> ss_model:filter([pub_to], model(all));
 %% message stored along with table message_{res()}
 model(message) -> ss_model:confirm_model([
     {from, #{}},
@@ -43,20 +44,6 @@ hello(#{db:=Db, res:=Res, id:=Id}=S) ->
         {Db:find(Res, Id), S}
     end, S).
 
-%% cast hello
-hello(From, S) ->
-    force_login(fun() ->
-        hi
-    end, From, S),
-    {ok, S}.
-
-%% cast notify
-notify({From, Content}, S) ->
-    force_login(fun() ->
-        Content
-    end, From, S),
-    {ok, S}.
-
 %% user state and sign string
 %% 读取状态
 status(S) ->
@@ -70,9 +57,13 @@ status(Status, S) ->
     end, S).
 
 %% login and logout
-login(User, Pass, #{db:=Db, res:=Res, id:=not_login}=S) ->
+login(User, Pass, #{id:=not_login}=S) ->
+    #{world:=World, db:=Db, res:=Res}=S,
     case check_password(Db, Res, User, Pass) of
-        {true, Id} -> {ok, S#{id=>Id}};
+        {true, Data} ->
+            Subs = ss_model:value(pub_to, Data, []),
+            [ss_world:send2(World, Sub, [notify, {online, self(), User}]) || Sub <- Subs], 
+            {ok, S#{id=>ss_model:value('_key', Data)}};
         {error, Reason} -> {{error, Reason}, S}
     end;
 login(_Id, _Pass, S) -> {already_login, S}.
@@ -82,9 +73,9 @@ check_password(Db, Res, Account, Pass) ->
     User = Db:find(Res, account, Account),
     case User of
         notfound -> {error, "account not exist"};
-        #{<<"_key">> :=Id} ->
+        _ ->
             case ss_model:equal(password, User, Pass) of
-                true -> {true, Id};
+                true -> {true, User};
                 false -> {error, "invalid password"}
             end
     end.
@@ -100,3 +91,16 @@ force_login(Fun, From, S) ->
         not_login -> From ! not_login;
         _ -> From ! Fun()
     end.
+
+%% cast hello
+hello(From, S) ->
+    force_login(fun() ->
+        hi
+    end, From, S),
+    {ok, S}.
+
+%% cast notify
+notify({online, _From, User}, S) ->
+    Slots = maps:get(slots, S, []),
+    [P ! {online, User} || P <- Slots],
+    {ok, S}.
