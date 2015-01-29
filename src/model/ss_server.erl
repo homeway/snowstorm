@@ -37,8 +37,6 @@ init([Mod|Args]) ->
 handle_call(Fun, _From, #{mod:=Mod}=S1) when is_atom(Fun) ->
     {Result, S2} = handle_delegate(Mod, Fun, [], S1),
     {reply, Result, S2};
-
-%% give up _From and use params
 handle_call([Fun|Args], _From, #{mod:=Mod}=S1) ->
     {Result, S2} = handle_delegate(Mod, Fun, Args, S1),
     {reply, Result, S2}.
@@ -46,6 +44,9 @@ handle_call([Fun|Args], _From, #{mod:=Mod}=S1) ->
 %% delegate handle_cast-----------------------------------------------
 %%
 %% use From for cast, you can send process message directly
+handle_cast({Fun, From}, #{mod:=Mod}=S1) when is_atom(Fun) ->
+    {_Result, S2} = handle_delegate(Mod, Fun, [], From, S1),
+    {noreply, S2};
 handle_cast({[Fun|Args], From}, #{mod:=Mod}=S1) ->
     {_Result, S2} = handle_delegate(Mod, Fun, Args, From, S1),
     {noreply, S2}.
@@ -100,10 +101,10 @@ handle_delegate(Mod, Fun, Args, S) ->
             end
     end.
 handle_delegate(Mod, Fun, Args, From, S) ->
-    case erlang:function_exported(Mod, Fun, length(Args)+1) of
+    case erlang:function_exported(Mod, Fun, length(Args)+2) of
         true -> apply(Mod, Fun, Args++[From, S]);
         false ->
-            case erlang:function_exported(?MODULE, Fun, length(Args)+1) of
+            case erlang:function_exported(?MODULE, Fun, length(Args)+2) of
                 true -> apply(?MODULE, Fun, Args++[From, S]);
                 false -> {{error, no_action, [Mod, Fun, Args]}, S}
             end

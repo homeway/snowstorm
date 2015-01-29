@@ -22,8 +22,19 @@ to_test() ->
     M1 = ss_world:call2(?world, P1, [model, password]),
     D1 = #{<<"account">> => "yifan", <<"password">> => "123456"},
     {ok, Id1} = ss_world:call2(?world, P1, [create, D1, M1]),
+
+    %% account must be uniq
     ?assertMatch({error, _}, ss_world:call2(?world, P1, [create, D1, M1])),
-    
+
+    %% 订阅者列表
+
+    %% 联系人
+
+    %% 订阅出席通知
+
+    %% 接收出席通知
+
+    %% 询问出席状态
 
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, P1, drop)),
