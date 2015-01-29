@@ -7,9 +7,9 @@
 -define(res, ss_validate_user).
 
 %% 定义示例模型(用户信息)
-custom_validate(K, M) ->
+custom_validate(K, Field) ->
     ss_validate:custom(K, <<"长度必须为4"/utf8>>, fun() ->
-        ss_model:length(K, M) == 4
+        ss_model:length(Field) == 4
     end).
 
 model() -> ss_model:confirm_model([
@@ -26,7 +26,7 @@ check_model_test() ->
     M2 = ss_model:confirm_model([
         {account, #{value=>"yifan", validate=>[required, uniq]}},
         {sex, #{type=>select, options=>["男", "女"], value=>femail, error=> "the value must be in select options"}},
-        {email, #{validate=>[required], error=> <<"字段不能为空"/utf8>>}},
+        {email, #{validate=>[required], error=> "field is required"}},
         {birthday, #{
             validate=> [fun ?MODULE:custom_validate/2],
             error=> <<"长度必须为4"/utf8>>}}

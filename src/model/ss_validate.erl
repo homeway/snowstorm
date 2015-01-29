@@ -16,13 +16,13 @@ check(M, S) ->
         end,
         lists:map(fun(Fun) ->
             case Fun of
-                uniq -> uniq(K, M, S);
-                required -> required(K, M);
-                {min, Len} when is_integer(Len) -> min(K, M, Len);
-                {max, Len} when is_integer(Len) -> max(K, M, Len);
-                _ when is_function(Fun) -> Fun(K, M);
-                {F, Args} when is_function(F) -> F(K, M, Args);
-                {Module, F, A} when is_atom(Module) and is_atom(F) and is_list(A) -> apply(Module, F, [K, M|A])
+                uniq -> uniq(K, Field, S);
+                required -> required(K, Field);
+                {min, Len} when is_integer(Len) -> min(K, Field, Len);
+                {max, Len} when is_integer(Len) -> max(K, Field, Len);
+                _ when is_function(Fun) -> Fun(K, Field);
+                {F, Args} when is_function(F) -> F(K, Field, Args);
+                {Module, F, A} when is_atom(Module) and is_atom(F) and is_list(A) -> apply(Module, F, [K, Field|A])
             end
         end, Funs)
     end, M),
@@ -50,23 +50,23 @@ custom(K, Tip, Fun) when is_binary(K) and is_function(Fun) ->
         true -> [];
         false -> [{K, Tip}]
     end.
-required(K, M) ->
-    custom(K, <<"字段不能为空"/utf8>>, fun() ->
-        ss_model:length(K, M) > 0
+required(K, Field) ->
+    custom(K, "field is required", fun() ->
+        ss_model:length(Field) > 0
     end).
 
 %% validate min length
-min(K, M, Len) ->
+min(K, Field, Len) ->
     Tip = <<"字段太短, 至少应为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
     custom(K, Tip, fun() ->
-        ss_model:length(K, M) >= Len
+        ss_model:length(Field) >= Len
     end).
 
 %% validate max length
-max(K, M, Len) ->
+max(K, Field, Len) ->
     Tip = <<"字段太长, 最多为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
     custom(K, Tip, fun() ->
-        ss_model:length(K, M) =< Len
+        ss_model:length(Field) =< Len
     end).
 
 %% uniq field in db
@@ -77,14 +77,14 @@ max(K, M, Len) ->
 %% 2) update with an id
 %%    the value not exist; 
 %%    or the value exist and bound with id in model
-uniq(FName, M, #{db:=Db, res:=Res}) ->
-    V = ss_model:value(FName, M),
+uniq(FName, Field, #{db:=Db, res:=Res}) ->
+    V = ss_model:value(Field),
     custom(FName, "field must be uniq", fun() ->
         case Db:find(Res, FName, V) of
             notfound ->
                 true;
             #{<<"_key">> := ExistKey} ->
-                case ss_model:value(<<"_key">>, M, undefined) of
+                case ss_model:value(Field, undefined) of
                     ExistKey -> true;
                     _ -> false
                 end
@@ -96,8 +96,7 @@ uniq(K, _, _) ->
     end).
 
 %% type check
-int(K, M) ->
-    Field = proplists:get_value(K, M),
+int(K, Field) ->
     custom(K, "the value must be integer", fun() ->
         case maps:get(value, Field, <<>>) of
             <<>> -> true;
@@ -105,8 +104,7 @@ int(K, M) ->
         end
     end).
 
-list(K, M) ->
-    Field = proplists:get_value(K, M),
+list(K, Field) ->
     custom(K, "the value must be a list", fun() ->
         case maps:get(value, Field, <<>>) of
             <<>> -> true;
@@ -117,8 +115,7 @@ list(K, M) ->
 %% select
 %% the value must belongs options when field type is select
 %% example: [sex, #{type=> select, options=> [mail, femail]}]
-select(K, M) ->
-    Field = proplists:get_value(K, M),
+select(K, Field) ->
     custom(K, "the value must be in select options", fun() ->
         case maps:get(value, Field, <<>>) of
             <<>> -> true;
