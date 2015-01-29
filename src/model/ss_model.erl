@@ -1,16 +1,21 @@
 %% -*- mode: nitrogen -*-
 -module(ss_model).
--export([value/2, value/3, length/2, equal/3, set/2]).
+-export([value/1, value/2, value/3, length/1, length/2, equal/2, equal/3]).
 -export([confirm_model/1, confirm_list/1, filter/2, drop/2]).
--export([from_model/1, to_model/2]).
+-export([from_model/1, to_model/2, set/2]).
 
-%% get value from model or map with key
+%% get value from field, model or map with key
 %% model: [{K, map()}]
+%%
+%% from field
+value(Field) when is_map(Field) -> maps:get(value, Field).
+value(Field, Default) when is_map(Field) -> maps:get(value, Field, Default);
+%% from maps
 value(Key, Map) when is_map(Map) -> maps:get(ss:to_binary(Key), Map);
 value(Key, Model) when is_list(Model) ->
     V = proplists:get_value(ss:to_binary(Key), Model),
     maps:get(value, V).
-
+%% from model
 value(Key, Map, Default) when is_map(Map) ->
     maps:get(ss:to_binary(Key), Map, Default);
 value(Key, Model, Default) ->
@@ -19,6 +24,12 @@ value(Key, Model, Default) ->
         V -> maps:get(value, V, Default)
     end.
 
+% length of value in field
+length(Field) ->
+    case maps:get(value, Field, <<>>) of
+        <<>> -> 0;
+        V -> erlang:length(V)
+    end.
 %% length of value in model
 length(Key, Model) ->
     case value(Key, Model, <<>>) of
@@ -26,9 +37,12 @@ length(Key, Model) ->
         V -> erlang:length(V)
     end.
 
+%% equal to value in field
+equal(Field, ToCompare) ->
+    value(Field, undefined) =:= ToCompare.
 %% equal to value in model
-equal(Key, Model, ToCompare) ->
-    value(Key, Model, undefined) =:= ToCompare.
+equal(Key, Data, ToCompare) ->
+    value(Key, Data, undefined) =:= ToCompare.
 
 %% set value to existing model
 %% 赋值队列必须为属性列表
