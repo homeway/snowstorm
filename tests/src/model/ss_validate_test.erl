@@ -25,8 +25,8 @@ check_model_test() ->
     {error, M1} = ss_validate:check(M0, #{db=>?db, res=>?res}),
     M2 = ss_model:confirm_model([
         {account, #{value=>"yifan", validate=>[required, uniq]}},
-        {sex, #{type=>select, options=>["男", "女"], value=>femail, error=> "the value must be in select options"}},
-        {email, #{validate=>[required], error=> "field is required"}},
+        {sex, #{type=>select, options=>["男", "女"], value=>femail, error=> <<"the value must be in select options">>}},
+        {email, #{validate=>[required], error=> <<"field is required">>}},
         {birthday, #{
             validate=> [fun ?MODULE:custom_validate/2],
             error=> <<"长度必须为4"/utf8>>}}

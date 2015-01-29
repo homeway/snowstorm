@@ -44,12 +44,14 @@ validate_acc([{K, Error}|Rest], M0) ->
     M1 = lists:keyreplace(K, 1, M0, {K, New}),
     validate_acc(Rest, M1).
 
-%% validate required
+%% custom a validate function
 custom(K, Tip, Fun) when is_binary(K) and is_function(Fun) ->
     case Fun() of
         true -> [];
-        false -> [{K, Tip}]
+        false -> [{K, ss:to_binary(Tip)}]
     end.
+
+%% validate required
 required(K, Field) ->
     custom(K, "field is required", fun() ->
         ss_model:length(Field) > 0
@@ -57,14 +59,14 @@ required(K, Field) ->
 
 %% validate min length
 min(K, Field, Len) ->
-    Tip = <<"字段太短, 至少应为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
+    Tip = <<"too short, need: "/utf8, (ss:to_binary(Len))/binary, " characters"/utf8>>,
     custom(K, Tip, fun() ->
         ss_model:length(Field) >= Len
     end).
 
 %% validate max length
 max(K, Field, Len) ->
-    Tip = <<"字段太长, 最多为"/utf8, (ss:to_binary(Len))/binary, "位"/utf8>>,
+    Tip = <<"too long, need: "/utf8, (ss:to_binary(Len))/binary, " characters"/utf8>>,
     custom(K, Tip, fun() ->
         ss_model:length(Field) =< Len
     end).
