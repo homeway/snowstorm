@@ -58,12 +58,13 @@ reg_server2(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
 
 info2(WN, PN)      -> gen_server:call(WN, {info,  PN}).
 unreg2(WN, PN)     -> gen_server:call(WN, {unreg, PN}).
-send2(WN, PN, Msg) -> gen_server:call(WN, {send,  PN, Msg}).
 call2(WN, PN, Req) -> gen_server:call(WN, {call,  PN, Req}).
 find2(WN, PN)      -> gen_server:call(WN, {find,  PN}).
 all2(WN)           -> gen_server:call(WN, all).
 clear2(WN)         -> gen_server:call(WN, clear).
 destroy2(WN)       -> gen_server:call(WN, destroy).
+
+send2(WN, PN, Msg) -> gen_server:cast(WN, {send,  PN, Msg}).
 
 %% api with default name of ss_world
 reg(PN, Mod)         -> reg2(?SERVER, PN, Mod, []).
@@ -147,16 +148,20 @@ handle_call(destroy, _From, #{world:=World}=S0) ->
     NewS = supervisor:which_children(World),
     {reply, length(OldS) - length(NewS), S0};
 
-%% cast message to process
-handle_call({send, Name, Msg}, {From, _}, #{world:=World}=S0) ->
-    S = supervisor:which_children(World),
-    R = case lists:keyfind(Name, 1, S) of
-        false -> not_reg;
-        {Name, Pid, _, _} -> gen_server:cast(Pid, {Msg, From})
-    end,
-    {reply, R, S0}.
+%% not support action
+handle_call(_, _, S) ->
+    {reply, {error, not_support}, S}.
 
+%% cast message to process
+handle_cast({send, Name, Msg}, #{world:=World}=S0) ->
+    S = supervisor:which_children(World),
+    case lists:keyfind(Name, 1, S) of
+        {Name, Pid, _, _} -> gen_server:cast(Pid, Msg);
+        _ -> not_cast
+    end,
+    {noreply, S0};
 handle_cast(stop, S) -> {stop, normal, S}.
+
 handle_info(undefined_info, S) -> {noreply, S}.
 terminate(normal, _S) -> ok.
 code_change(undefined_oldVsn, S, _Extra) -> {ok, S}.
