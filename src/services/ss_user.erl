@@ -3,7 +3,7 @@
 -behaviour(ss_server).
 -export([init/1, model/1]).
 %% call callback
--export([hello/1, status/1, status/2, who/1, login/3, logout/1]).
+-export([hello/1, status/1, status/2, contacts/1, who/1, login/3, logout/1]).
 %% cast callback
 -export([hello/2, notify/2]).
 
@@ -59,15 +59,25 @@ status(Status, S) ->
         {ok, S#{status=>Status}}
     end, S).
 
+%% 读取联系人
+contacts(S) ->
+    force_login(fun() ->
+        {maps:get(contacts, S, []), S}
+    end, S).
+
 %% login and logout
 login(User, Pass, #{id:=not_login}=S) ->
     #{world:=World, db:=Db, res:=Res}=S,
     case check_password(Db, Res, User, Pass) of
         {true, Data} ->
+            % 从数据库读取联系人信息
             Contacts = ss_model:value(contacts, Data, []),
+            % 广播出席通知
             Subs = [{user, Account} || {Account, _} <- Contacts],
             [ss_world:send2(World, Sub, [notify, {online, User}]) || Sub <- Subs], 
-            {ok, S#{id=>ss_model:value('_key', Data)}};
+            % 初始化联系人状态为离线
+            ContactsS = [{Account, Info#{status=>"offline"}} || {Account, Info} <- Contacts],
+            {ok, S#{id=>ss_model:value('_key', Data), contacts=>ContactsS}};
         {error, Reason} -> {{error, Reason}, S}
     end;
 login(_Id, _Pass, S) -> {already_login, S}.
@@ -109,11 +119,11 @@ hello(From, S) ->
 %% 若contact关系为double, 则发送出席回执
 %% 若存在slots, 则转发erlang消息给连接者
 notify({online, From}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
+    Contacts = maps:get(contacts, S, []),
     case maps:get(id, S, not_login) of
         not_login -> not_login;
         Id ->
             Data = Db:find(Res, Id),
-            Contacts = ss_model:value(contacts, Data, []),
             MyAccount = ss_model:value(account, Data),
             case lists:keymember(From, 1, Contacts) of
                 true -> ss_world:send2(World, {user, From}, [notify, {confirm, online, MyAccount}]);
@@ -122,8 +132,18 @@ notify({online, From}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
     end,
     Slots = maps:get(slots, S, []),
     [P ! {online, From} || P <- Slots],
-    {ok, S};
+    {ok, S#{contacts=>update_contact(From, "online", Contacts)}};
 notify({confirm, online, From}, S) ->
+    % 更新联系人状态
+    Contacts = maps:get(contacts, S, []),
     Slots = maps:get(slots, S, []),
     [P ! {online, From} || P <- Slots],
-    {ok, S}.
+    {ok, S#{contacts=>update_contact(From, "online", Contacts)}}.
+update_contact(From, Status, Contacts) ->
+    case lists:keyfind(From, 1, Contacts) of
+        false -> [];
+        {From, Info} when is_map(Info) ->
+            New = {From, Info#{status=>Status}},
+            lists:keyreplace(From, 1, Contacts, New);
+        Contacts1 -> Contacts1
+    end.
