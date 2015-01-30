@@ -18,7 +18,7 @@ value(Key, Model) when is_list(Model) ->
 %% from model
 value(Key, Map, Default) when is_map(Map) ->
     maps:get(ss:to_binary(Key), Map, Default);
-value(Key, Model, Default) ->
+value(Key, Model, Default) when is_list(Model) ->
     case proplists:get_value(ss:to_binary(Key), Model) of
         undefined -> Default;
         V -> maps:get(value, V, Default)

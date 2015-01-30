@@ -32,24 +32,30 @@ to_test() ->
 
     %% 首先启动用户adi
     P2 = {user, "adi"},
-    D2 = #{account => "adi", password => "123456"},
-    {ok, _} = ss_world:call2(?world, Res, [create, D2, M1]),
+    M2 = ss_world:call2(?world, Res, [model, all]),
+    D2 = #{account => "adi", password => "123456", contacts => [{"yifan", #{rel=>double}}]},
+    {ok, Id2} = ss_world:call2(?world, Res, [create, D2, M2]),
+    erlang:display(ss_world:call2(?world, Res, [find, Id2])),
     ss_world:reg_server2(?world, P2, ss_user, [#{res=>ss_user2}]),
     erlang:display(ss_world:call2(?world, P2, [connect, self()])),
+    ?assertMatch(ok, ss_world:call2(?world, P2, [login, "adi", "123456"])),
 
     %% 添加订阅列表
     P3 = {user, "yifan"},
     M3 = ss_world:call2(?world, Res, [model, contacts]),
-    D3 = #{contacts => [{"adi", #{rel=>single}}, {"homeway", #{rel=>single}}]},
+    D3 = #{contacts => [{"adi", #{rel=>double}}, {"homeway", #{rel=>single}}]},
     ?assertMatch(ok, ss_world:call2(?world, Res, [update, Id1, D3, M3])),
 
     %% 出席
     ss_world:reg_server2(?world, P3, ss_user, [#{res=>ss_user2}]),
+    erlang:display(ss_world:call2(?world, P3, [connect, self()])),
     ?assertMatch(ok, ss_world:call2(?world, P3, [login, "yifan", "123456"])),
     erlang:display(ss_world:all2(?world)),
 
     %% 收取出席通知
     ?assertMatch({online, "yifan"}, got_msg()),
+    %% 收取出席确认通知
+    ?assertMatch({online, "adi"}, got_msg()),
 
     %% 联系人
 

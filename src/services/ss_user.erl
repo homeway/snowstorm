@@ -108,22 +108,22 @@ hello(From, S) ->
 %% 上线出席通知
 %% 若contact关系为double, 则发送出席回执
 %% 若存在slots, 则转发erlang消息给连接者
-notify({online, User}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
+notify({online, From}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
     case maps:get(id, S, not_login) of
-        not_login -> nothing;
+        not_login -> not_login;
         Id ->
-            User = Db:find(Res, Id),
-            Contacts = ss_model:value(contacts, User),
-            Sub = {user, User},
-            case lists:keyfind(User, 1, Contacts) of
-                true -> ss_world:send2(World, Sub, [notify, {confirm, online, User}]);
-                _ -> nothing
+            Data = Db:find(Res, Id),
+            Contacts = ss_model:value(contacts, Data, []),
+            MyAccount = ss_model:value(account, Data),
+            case lists:keymember(From, 1, Contacts) of
+                true -> ss_world:send2(World, {user, From}, [notify, {confirm, online, MyAccount}]);
+                _ -> single_contact
             end
     end,
     Slots = maps:get(slots, S, []),
-    [P ! {online, User} || P <- Slots],
+    [P ! {online, From} || P <- Slots],
     {ok, S};
-notify({confirm, online, User}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
+notify({confirm, online, From}, S) ->
     Slots = maps:get(slots, S, []),
-    [P ! {online, User} || P <- Slots],
+    [P ! {online, From} || P <- Slots],
     {ok, S}.
