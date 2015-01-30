@@ -40,7 +40,7 @@ to_test() ->
     %% 添加订阅列表
     P3 = {user, "yifan"},
     M3 = ss_world:call2(?world, Res, [model, contacts]),
-    D3 = #{contacts => [{user, single, "adi"}, {user, single, "homeway"}]},
+    D3 = #{contacts => [{"adi", #{rel=>single}}, {"homeway", #{rel=>single}}]},
     ?assertMatch(ok, ss_world:call2(?world, Res, [update, Id1, D3, M3])),
 
     %% 出席

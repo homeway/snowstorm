@@ -25,7 +25,7 @@ model(all) -> ss_model:confirm_model([
 model(show) -> ss_model:drop([password, pub_to], model(all));
 model(password) -> ss_model:filter([account, password], model(all));
 
-%% contacts保存联系人的格式为 [{user, rel(), account()}]
+%% contacts保存联系人的格式为 [{account(), #{rel=>rel()}}]
 %%     rel() :: single|double
 model(contacts) -> ss_model:filter([contacts], model(all));
 
@@ -65,8 +65,8 @@ login(User, Pass, #{id:=not_login}=S) ->
     case check_password(Db, Res, User, Pass) of
         {true, Data} ->
             Contacts = ss_model:value(contacts, Data, []),
-            Subs = [{user, Id} || {user, _, Id} <- Contacts],
-            [ss_world:send2(World, Sub, [notify, {online, self(), User}]) || Sub <- Subs], 
+            Subs = [{user, Account} || {Account, _} <- Contacts],
+            [ss_world:send2(World, Sub, [notify, {online, User}]) || Sub <- Subs], 
             {ok, S#{id=>ss_model:value('_key', Data)}};
         {error, Reason} -> {{error, Reason}, S}
     end;
@@ -103,8 +103,27 @@ hello(From, S) ->
     end, From, S),
     {ok, S}.
 
-%% cast notify
-notify({online, _From, User}, S) ->
+%% 通知接收
+%%
+%% 上线出席通知
+%% 若contact关系为double, 则发送出席回执
+%% 若存在slots, 则转发erlang消息给连接者
+notify({online, User}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
+    case maps:get(id, S, not_login) of
+        not_login -> nothing;
+        Id ->
+            User = Db:find(Res, Id),
+            Contacts = ss_model:value(contacts, User),
+            Sub = {user, User},
+            case lists:keyfind(User, 1, Contacts) of
+                true -> ss_world:send2(World, Sub, [notify, {confirm, online, User}]);
+                _ -> nothing
+            end
+    end,
+    Slots = maps:get(slots, S, []),
+    [P ! {online, User} || P <- Slots],
+    {ok, S};
+notify({confirm, online, User}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
     Slots = maps:get(slots, S, []),
     [P ! {online, User} || P <- Slots],
     {ok, S}.
