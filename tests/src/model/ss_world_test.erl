@@ -14,7 +14,7 @@ to_test() ->
     P2 = test_user2,
     ss_world:reg_server2(?world, P1, ss_user2),
     ?assertEqual(true, is_pid(ss_world:find2(?world, P1))),
-    ?assertEqual(false, ss_world:find2(?world, P2)),
+    ?assertEqual(not_reg, ss_world:find2(?world, P2)),
 
     %% regss ss_user2
     ss_world:reg_server2(?world, P2, ss_user2),
@@ -25,7 +25,7 @@ to_test() ->
 
     %% unreg ss_user2
     ss_world:unreg2(?world, P2),
-    ?assertEqual(false, ss_world:find2(?world, P2)),
+    ?assertEqual(not_reg, ss_world:find2(?world, P2)),
 
     %% get process info
     ?assertMatch([{current_function,_}|_], ss_world:info2(?world, P1)),

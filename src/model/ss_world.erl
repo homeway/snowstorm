@@ -106,7 +106,7 @@ handle_call({unreg, Name}, _From, #{world_sup:=WorldSup}=S0) ->
 handle_call({find, Name}, _From, #{world_sup:=WorldSup}=S0) ->
     S = supervisor:which_children(WorldSup),
     case lists:keyfind(Name, 1, S) of
-        false -> {reply, false, S0};
+        false -> {reply, not_reg, S0};
         {Name, Pid, _, _} -> {reply, Pid, S0}
     end;
 
@@ -114,7 +114,7 @@ handle_call({find, Name}, _From, #{world_sup:=WorldSup}=S0) ->
 handle_call({call, Name, Req}, _From, #{world_sup:=WorldSup}=S0) ->
     S = supervisor:which_children(WorldSup),
     case lists:keyfind(Name, 1, S) of
-        false -> {reply, false, S0};
+        false -> {reply, not_reg, S0};
         {Name, Pid, _, _} -> {reply, gen_server:call(Pid, Req), S0}
     end;
 
@@ -127,7 +127,7 @@ handle_call(all, _From, #{world_sup:=WorldSup}=S0) ->
 handle_call({info, Name}, _From, #{world_sup:=WorldSup}=S0) ->
     S = supervisor:which_children(WorldSup),
     case lists:keyfind(Name, 1, S) of
-        false -> {reply, false, S0};
+        false -> {reply, not_reg, S0};
         {Name, Pid, _, _} -> {reply, erlang:process_info(Pid), S0}
     end;
 
