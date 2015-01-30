@@ -20,12 +20,15 @@ model(all) -> ss_model:confirm_model([
     {password, #{type=>password, validate=>[required, {min, 6}]}},
     {email, #{}},
     {nickname, #{}},
-    {pub_to, #{type=>list}},  % 订阅者列表
-    {contacts, #{type=>tags}} % 联系人
+    {contacts, #{type=>list}}  % 联系人列表
 ]);
 model(show) -> ss_model:drop([password, pub_to], model(all));
 model(password) -> ss_model:filter([account, password], model(all));
-model(pub_to) -> ss_model:filter([pub_to], model(all));
+
+%% contacts保存联系人的格式为 [{user, rel(), account()}]
+%%     rel() :: single|double
+model(contacts) -> ss_model:filter([contacts], model(all));
+
 %% message stored along with table message_{res()}
 model(message) -> ss_model:confirm_model([
     {from, #{}},
@@ -61,7 +64,8 @@ login(User, Pass, #{id:=not_login}=S) ->
     #{world:=World, db:=Db, res:=Res}=S,
     case check_password(Db, Res, User, Pass) of
         {true, Data} ->
-            Subs = ss_model:value(pub_to, Data, []),
+            Contacts = ss_model:value(contacts, Data, []),
+            Subs = [{user, Id} || {user, _, Id} <- Contacts],
             [ss_world:send2(World, Sub, [notify, {online, self(), User}]) || Sub <- Subs], 
             {ok, S#{id=>ss_model:value('_key', Data)}};
         {error, Reason} -> {{error, Reason}, S}
