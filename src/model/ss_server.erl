@@ -103,12 +103,13 @@ drop(#{db:=Db, res:=Res}=S) ->
 %% private ------------------------------------------------------------
 %%
 %% delegate action to module or do it self
+%% force to check the return type
 handle_delegate(Mod, Fun, Args, S) ->
     case erlang:function_exported(Mod, Fun, length(Args)+1) of
-        true -> apply(Mod, Fun, Args++[S]);
+        true -> {_Result, #{world:=_, mod:=_, res:=_, db:=_}} = apply(Mod, Fun, Args++[S]);
         false ->
             case erlang:function_exported(?MODULE, Fun, length(Args)+1) of
-                true -> apply(?MODULE, Fun, Args++[S]);
+                true -> {_Result, #{world:=_, mod:=_, res:=_, db:=_}} = apply(?MODULE, Fun, Args++[S]);
                 false -> {{error, no_action, [Mod, Fun, Args]}, S}
             end
     end.
