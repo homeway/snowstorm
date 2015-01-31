@@ -35,9 +35,9 @@ to_test() ->
     M2 = ss_world:call2(?world, Res, [model, all]),
     D2 = #{account => "adi", password => "123456", contacts => [{"yifan", #{rel=>double}}]},
     {ok, Id2} = ss_world:call2(?world, Res, [create, D2, M2]),
-    erlang:display(ss_world:call2(?world, Res, [find, Id2])),
+    ss_world:call2(?world, Res, [find, Id2]),
     ss_world:reg_server2(?world, P2, ss_user, [#{res=>ss_user2}]),
-    erlang:display(ss_world:call2(?world, P2, [connect, self()])),
+    ss_world:call2(?world, P2, [connect, self()]),
     ?assertMatch(not_login, ss_world:call2(?world, P2, status)),
     ?assertMatch(ok, ss_world:call2(?world, P2, [login, "adi", "123456"])),
     ?assertMatch("online", ss_world:call2(?world, P2, status)),
@@ -50,10 +50,10 @@ to_test() ->
 
     %% 出席
     ss_world:reg_server2(?world, P3, ss_user, [#{res=>ss_user2}]),
-    erlang:display(ss_world:call2(?world, P3, [connect, self()])),
+    ss_world:call2(?world, P3, [connect, self()]),
     ?assertMatch(not_login, ss_world:call2(?world, P3, contacts)),
     ?assertMatch(ok, ss_world:call2(?world, P3, [login, "yifan", "123456"])),
-    erlang:display(ss_world:all2(?world)),
+    ss_world:all2(?world),
 
     %% 收取双方出席通知
     ?assertMatch({online, "yifan"}, got_msg()),
@@ -65,13 +65,37 @@ to_test() ->
     Contacts2 = [{"adi", #{rel=>double, status=>"online"}}, {"homeway", #{rel=>single, status=>"offline"}}],
     ?assertEqual(Contacts2, ss_world:call2(?world, P3, contacts)),
 
+    %% 申请成为联系人
+    %%
+    P4 = {user, "homeway"},
+    D4 = #{account => "homeway", password => "123456"},
+    ?assertMatch({ok, _}, ss_world:call2(?world, Res, [create, D4, M1])),
+    ss_world:reg_server2(?world, P4, ss_user, [#{res=>ss_user2}]),
+    ?assertMatch(ok, ss_world:call2(?world, P4, [login, "homeway", "123456"])),
+    %% 设为自己的联系人
+    erlang:display("set homeway to contact adi"),
+    erlang:display(ss_world:call2(?world, P4, info)),
+    ?assertEqual(ok, ss_world:call2(?world, P4, [contact, "adi"])),
+    erlang:display(ss_world:call2(?world, P4, info)),
+    Contacts4 = [{"adi", #{rel=>single, status=>"offline"}}],
+    ?assertEqual(Contacts4, ss_world:call2(?world, P4, contacts)),
+    %% 邀请对方加为联系人
+    erlang:display("invite adi to contact homeway"),
+    erlang:display(ss_world:call2(?world, P2, info)),
+    ss_world:send2(?world, P2, [invite, "homeway"]),
+    clear_msg(),
+    erlang:display(ss_world:call2(?world, P2, info)),
+    Contacts5 = [{"homeway", #{rel=>double, status=>"online"}, {"yifan", #{rel=>double, status=>"online"}}}],
+    ?assertEqual(Contacts5, ss_world:call2(?world, P2, contacts)),
+
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, Res, drop)),
     ss_world:stop2(?world).
 
+%% 如果没有任何消息就停顿100毫秒再确定消息已清除
 clear_msg() ->
     receive _ -> clear_msg()
-    after 1 -> ok
+    after 100 -> ok
     end.
 
 got_msg() ->

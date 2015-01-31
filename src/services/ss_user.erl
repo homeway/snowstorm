@@ -3,7 +3,7 @@
 -behaviour(ss_server).
 -export([init/1, model/1]).
 %% call callback
--export([hello/1, status/1, status/2, contacts/1, who/1, login/3, logout/1]).
+-export([hello/1, status/1, status/2, contact/2, contacts/1, invite/2, who/1, login/3, logout/1]).
 %% cast callback
 -export([hello/2, notify/2]).
 
@@ -65,6 +65,49 @@ contacts(S) ->
         {maps:get(contacts, S, []), S}
     end, S).
 
+%% 设置联系人, 成为single类型联系人
+%%   1) 联系人已存在, 直接返回
+%%   2) 联系人不存在, 创建数据记录，并添加到进程状态
+%%   3) 未登录
+contact(To, #{db:=Db, res:=Res, id:=Id}=S) ->
+    force_login(fun() ->
+        Data = Db:find(Res, Id),
+        Contacts = ss_model:value(contacts, Data, []),
+        case lists:keymember(To, 1, Contacts) of
+            true -> {ok, S};
+            false ->
+                New = [{To, #{rel=>single}}|Contacts],
+                ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
+                {ok, S#{contacts=>reload_contacts(S)}}
+        end
+    end, S).
+reload_contacts(#{db:=Db, res:=Res, id:=Id}=S) ->
+    Data = Db:find(Res, Id),
+    Contacts0 = ss_model:value(contacts, Data, []),
+    Contacts1 = maps:get(contacts, S, []),
+    lists:map(fun({K, V}) ->
+        Info = proplists:get_value(K, Contacts1, #{}),
+        case maps:get(status, Info, "offline") of
+            "offline" -> {K, V#{status=>"offline"}};
+            Status ->    {K, V#{status=>Status}}
+        end
+    end, Contacts0).
+
+%% 邀请成为联系人
+%% 1) 更新自己的联系人列表
+%% 2) 发送出席消息
+invite(From, #{world:=World}=S) ->
+    % 更新对方为自己的联系人
+    case contact(From, S) of
+        {R1, S1} ->
+            case maps:get(user, S, undefined) of
+                undefined -> nothing;
+                User -> ss_world:send2(World, {user, From}, [notify, {online, User}])
+            end,
+            {R1, S1};
+        _ -> {error, S}
+    end.
+
 %% login and logout
 login(User, Pass, #{id:=not_login}=S) ->
     #{world:=World, db:=Db, res:=Res}=S,
@@ -77,19 +120,19 @@ login(User, Pass, #{id:=not_login}=S) ->
             [ss_world:send2(World, Sub, [notify, {online, User}]) || Sub <- Subs], 
             % 初始化联系人状态为离线
             ContactsS = [{Account, Info#{status=>"offline"}} || {Account, Info} <- Contacts],
-            {ok, S#{id=>ss_model:value('_key', Data), contacts=>ContactsS}};
+            {ok, S#{id=>ss_model:value('_key', Data), user=>User, contacts=>ContactsS}};
         {error, Reason} -> {{error, Reason}, S}
     end;
 login(_Id, _Pass, S) -> {already_login, S}.
 logout(S) -> {ok, S#{id=>not_login}}.
 
 check_password(Db, Res, Account, Pass) ->
-    User = Db:find(Res, account, Account),
-    case User of
+    Data = Db:find(Res, account, Account),
+    case Data of
         notfound -> {error, "account not exist"};
         _ ->
-            case ss_model:equal(password, User, Pass) of
-                true -> {true, User};
+            case ss_model:equal(password, Data, Pass) of
+                true -> {true, Data};
                 false -> {error, "invalid password"}
             end
     end.
@@ -134,6 +177,7 @@ notify({online, From}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
     [P ! {online, From} || P <- Slots],
     {ok, S#{contacts=>update_contact(From, "online", Contacts)}};
 notify({confirm, online, From}, S) ->
+    % 更新联系人关系, 从single到double
     % 更新联系人状态
     Contacts = maps:get(contacts, S, []),
     Slots = maps:get(slots, S, []),
