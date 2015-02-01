@@ -45,9 +45,16 @@ handle_call([Fun|Args], _From, #{mod:=Mod}=S1) ->
 %%
 %% use From for cast, you can send process message directly
 handle_cast(Fun, #{mod:=Mod}=S1) when is_atom(Fun) ->
+    erlang:display("handle_cast Fun"),
+    erlang:display(Mod),
+    erlang:display(Fun),
     {_Result, S2} = handle_delegate(Mod, Fun, [], S1),
     {noreply, S2};
 handle_cast([Fun|Args], #{mod:=Mod}=S1) ->
+    erlang:display("handle_cast [Fun|Args]"),
+    erlang:display(Mod),
+    erlang:display(Fun),
+    erlang:display(Args),
     {_Result, S2} = handle_delegate(Mod, Fun, Args, S1),
     {noreply, S2}.
 

@@ -3,9 +3,11 @@
 -behaviour(ss_server).
 -export([init/1, model/1]).
 %% call callback
--export([hello/1, status/1, status/2, contact/2, contacts/1, invite/2, who/1, login/3, logout/1]).
+-export([hello/1, status/1, status/2, invite/2, contacts/1, who/1, login/3, logout/1]).
 %% cast callback
--export([hello/2, notify/2]).
+-export([hello/2, notify/2, invite_from/2, invite_confirm/2]).
+
+-define(offline, {service, offline}).
 
 %% ss_server api
 init([Config]) when is_map(Config) ->
@@ -29,13 +31,6 @@ model(password) -> ss_model:filter([account, password], model(all));
 %%     rel() :: single|double
 model(contacts) -> ss_model:filter([contacts], model(all));
 
-%% message stored along with table message_{res()}
-model(message) -> ss_model:confirm_model([
-    {from, #{}},
-    {to, #{}},
-    {status, #{type=>select, options=>[offline, confirm], value=>offline}},
-    {content, #{type=>textarea}}
-]);
 model(_) -> [].
 
 %% call who
@@ -67,7 +62,9 @@ login(UserName, Pass, #{account:=not_login, id:=not_login}=S) ->
             % 从数据库读取联系人信息
             Contacts = ss_model:value(contacts, Data, []),
             % 广播出席通知
-            Subs = [{account, Account} || {Account, _} <- Contacts],
+            Subs = [?offline|[{account, Account} || {Account, _} <- Contacts]],
+            erlang:display("login ...."),
+            erlang:display(Subs),
             [ss_world:send2(World, Sub, [notify, {online, UserName}]) || Sub <- Subs], 
             % 初始化联系人列表, 活跃map为空
             {ok, S#{id=>ss_model:value('_key', Data), account=>UserName, contacts=>Contacts, living=>#{}}};
@@ -141,6 +138,8 @@ notify({confirm, online, From}, #{db:=Db, res:=Res, id:=Id}=S) ->
                 % 将联系人状态从single修改为double
                 New = lists:keyreplace(K, 1, Contacts, {K, Info#{rel=>double}}),
                 % 存储
+                erlang:display("notify confirm ........"),
+                erlang:display(New),
                 ok=Db:update(Res, Id, #{<<"contacts">> =>New}),
                 % 发给slot连接者
                 Slots = maps:get(slots, S, []),
@@ -159,33 +158,69 @@ contacts(S) ->
         {[{K, I#{status=>maps:get(K, Living, "offline")}} || {K, I} <- Contacts], S}
     end, S).
 
-%% 设置联系人, 成为single类型联系人
-%%   1) 联系人已存在, 直接返回
-%%   2) 联系人不存在, 创建数据记录，并添加到进程状态
-%%   3) 未登录
-contact(To, #{db:=Db, res:=Res, id:=Id}=S) ->
+%% 添加联系人
+%%   1) 设置single联系人
+%%   2) 发送double联系人邀请
+invite(To, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
+    force_login(fun() ->
+        case maps:get(account, S, undefined) of
+            undefined ->
+                {ok, S};
+            Account ->
+                % 更新对方为自己的联系人
+                Old = Db:find(Res, Id),
+                Contacts = list_append(To, {To, #{rel=>single}}, maps:get(<<"contacts">>, Old, [])),
+                New = Old#{<<"contacts">> => Contacts},
+                ok=Db:update(Res, Id, New),
+                % 发送邀请
+                ss_world:send2(World, ?offline, [invite, Account, To]),
+                {ok, S#{contacts=>Contacts}}
+        end
+    end, S).
+
+%% 收到联系人邀请
+invite_from(From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
         Data = Db:find(Res, Id),
         Contacts = maps:get(contacts, S, []),
-        case lists:keymember(To, 1, Contacts) of
+        case lists:keymember(From, 1, Contacts) of
             true -> {already_contact, S};
             false ->
-                New = [{To, #{rel=>single}}|Contacts],
+                erlang:display("invite_from ......"),
+                erlang:display(From),
+                % 更新对方为自己的联系人
+                New = [{From, #{rel=>double}}|Contacts],
                 ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
+                % 发送在线通知
+                ss_world:send2(World, {account, From}, [invite_confirm, Account]),
                 {ok, S#{contacts=>New}}
         end
     end, S).
 
-%% 邀请成为联系人的请求
-invite(From, #{world:=World}=S) ->
-    % 更新对方为自己的联系人
-    case contact(From, S) of
-        {ok, S1} ->
-            case maps:get(account, S, undefined) of
-                undefined -> nothing;
-                Account -> ss_world:send2(World, {account, From}, [notify, {online, Account}])
-            end,
-            {ok, S1};
-        _ -> {error, S}
+%% 收到接受邀请的确认
+invite_confirm(From, #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
+    force_login(fun() ->
+        Data = Db:find(Res, Id),
+        Contacts = maps:get(contacts, S, []),
+        case lists:keyfind(From, 1, Contacts) of
+            false ->
+                {not_invited, S};
+            _ ->
+                erlang:display("invite_confirm ......"),
+                erlang:display(From),
+                % 更新联系人关系
+                New = lists:keyreplace(From, 1, Contacts, {From, #{rel=>double}}),
+                ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
+                % 发送在线通知
+                ss_world:send2(World, {account, From}, [notify, {online, Account}]),
+                {ok, S#{contacts=>New}}
+        end
+    end, S).
+
+%% (避免重复)添加元素到列表
+list_append(To, Item, List) ->
+    case lists:keymember(To, 1, List) of
+        true -> List;
+        false -> [Item|List]
     end.
 
