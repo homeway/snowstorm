@@ -15,14 +15,14 @@ init([]) ->
     Default = #{db=>ss_nosqlite, res=>account, account=>not_login, id=>not_login},
     {ok, Default}.
 
+%% ss_account 所有关键字段
 model(all) -> ss_model:confirm_model([
     {account, #{validate=>[required, uniq]}},
     {password, #{type=>password, validate=>[required, {min, 6}]}},
-    {email, #{}},
-    {nickname, #{}},
     {contacts, #{type=>list}}  % 联系人列表
 ]);
-model(show) -> ss_model:drop([password, pub_to], model(all));
+
+%% password
 model(password) -> ss_model:filter([account, password], model(all));
 
 %% contacts保存联系人的格式为 [{account(), #{rel=>rel()}}]
