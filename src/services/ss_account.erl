@@ -5,7 +5,7 @@
 %% call callback
 -export([hello/1, status/1, status/2, invite/2, contacts/1, who/1, login/3, logout/1]).
 %% cast callback
--export([hello/2, notify/2, invite_from/2, invite_confirm/2]).
+-export([hello/2, notify/2, invite_from/3, invite_confirm/2]).
 
 -define(offline, {service, offline}).
 
@@ -179,7 +179,7 @@ invite(To, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
     end, S).
 
 %% 收到联系人邀请
-invite_from(From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
+invite_from(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
         Data = Db:find(Res, Id),
         Contacts = maps:get(contacts, S, []),
@@ -191,8 +191,10 @@ invite_from(From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=
                 % 更新对方为自己的联系人
                 New = [{From, #{rel=>double}}|Contacts],
                 ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
-                % 发送在线通知
+                % 发送邀请通过的通知
                 ss_world:send2(World, {account, From}, [invite_confirm, Account]),
+                % 清理离线通知
+                ss_world:send2(World, ?offline, [delete, TrackId]),
                 {ok, S#{contacts=>New}}
         end
     end, S).

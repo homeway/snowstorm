@@ -119,6 +119,8 @@ to_test() ->
                  {"homeway", #{rel=>double, status=>"online"}},
                  {"yifan",   #{rel=>double, status=>"online"}}],
     ?assertEqual(Contacts8, ss_world:call2(?world, Adi, contacts)),
+    %% 离线通知应该已经清理
+    ?assertEqual([], ss_world:call2(?world, ?offline, all)),
 
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, Res, drop)),

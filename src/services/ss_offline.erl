@@ -24,11 +24,11 @@ invite(From, To, #{world:=World, db:=Db, res:=Res}=S) ->
     % 保存离线邀请, 收到确认后清除
     Message = [invite_from, From],
     Item = #{<<"receiver">> =>To, <<"message">> =>Message},
-    {ok, _}=Db:create(Res, Item),
+    {ok, TrackId}=Db:create(Res, Item),
     % 发送邀请消息
     erlang:display("invite from invite first........."),
     erlang:display(Message),
-    ss_world:send2(World, {account, To}, Message),
+    ss_world:send2(World, {account, To}, [invite_from, TrackId, From]),
     {ok, S}.
 
 %% 发送离线消息
@@ -43,5 +43,5 @@ notify({online, From}, #{world:=World, db:=Db, res:=Res}=S) ->
         From =:= R
     end, []),
     erlang:display(Messages),
-    [ss_world:send2(World, {account, From}, Msg) || #{<<"message">> := Msg} <- Messages],
+    [ss_world:send2(World, {account, From}, [Action,TrackId|Msg]) || #{<<"_key">> := TrackId, <<"message">> := [Action|Msg]} <- Messages],
     {ok, S}.
