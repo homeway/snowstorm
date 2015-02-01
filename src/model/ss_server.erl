@@ -66,14 +66,11 @@ model(Action, #{mod:=Mod}=S) -> {apply(Mod, model, [Action]), S}.
 
 %% connect to model -----------------------------------------------
 %%    for example, n2o websocket can receive message by messge slots
-connect(Pid, #{world:=World}=S) ->
+connect(Pid, S) ->
     Slots = maps:get(slots, S, []),
     case lists:member(Pid, Slots) of
-        true -> {{ok, alread_connected}, S};
-        false ->
-            erlang:display(World),
-            erlang:display(Pid),
-            {{ok, connected}, S#{slots=>[Pid|Slots]}}
+        true ->  {{ok, alread_connected}, S};
+        false -> {{ok, connected}, S#{slots=>[Pid|Slots]}}
     end.
 
 %% db action ------------------------------------------------------

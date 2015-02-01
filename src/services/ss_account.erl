@@ -139,10 +139,7 @@ notify({confirm, online, From}, #{db:=Db, res:=Res, id:=Id}=S) ->
                 {single_contact, S};
             {K, Info} ->
                 % 将联系人状态从single修改为double
-                erlang:display("notify received ..........."),
-                erlang:display(Contacts),
                 New = lists:keyreplace(K, 1, Contacts, {K, Info#{rel=>double}}),
-                erlang:display(New),
                 % 存储
                 ok=Db:update(Res, Id, #{<<"contacts">> =>New}),
                 % 发给slot连接者
