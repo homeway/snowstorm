@@ -114,9 +114,9 @@ to_test() ->
     clear_msg(),
     ?assertMatch(ok, ss_world:call2(?world, Wenxuan, [login, "wenxuan", "123456"])),
     erlang:display("wenxuan login ....."),
-    %% wenxuan收到离线邀请, 更新联系人
-    {invite_from, TrackId, From} = got_msg(),
-    ?assertEqual(ok, ss_world:call2(?world, Wenxuan, [invite_to_accept, TrackId, From])),
+    %% wenxuan收到离线邀请, 接受
+    {invite_from, TrackId6, From6} = got_msg(),
+    ?assertEqual(ok, ss_world:call2(?world, Wenxuan, [invite_to_accept, TrackId6, From6])),
     receive nothing -> wait after 100 -> ok end,
     Contacts7 = [{"adi", #{rel=>double, status=>"online"}}],
     ?assertEqual(Contacts7, ss_world:call2(?world, Wenxuan, contacts)),
@@ -127,6 +127,22 @@ to_test() ->
     ?assertEqual(Contacts8, ss_world:call2(?world, Adi, contacts)),
     %% 离线通知应该已经清理
     ?assertEqual([], ss_world:call2(?world, ?offline, all)),
+
+    %% 拒绝联系人邀请
+    %% adi添加wenxuan为联系人，但wenxuan不在线
+    Xiaojie = {account, "xiaojie"},
+    D8 = #{account => "xiaojie", password => "123456"},
+    ?assertMatch({ok, _}, ss_world:call2(?world, Res, [create, D8, M1])),
+    ss_world:reg_server2(?world, Xiaojie, ss_account, [#{res=>ss_account2}]),
+    ss_world:call2(?world, Xiaojie, [connect, self()]),
+    ?assertMatch(ok, ss_world:call2(?world, Xiaojie, [login, "xiaojie", "123456"])),
+    clear_msg(),
+    ?assertEqual(ok, ss_world:call2(?world, Adi, [invite, "xiaojie"])),
+    %% wenxuan收到邀请, 拒绝
+    {invite_from, TrackId8, From8} = got_msg(),
+    ?assertEqual(ok, ss_world:call2(?world, Xiaojie, [invite_to_refuse, TrackId8, From8])),
+    receive nothing -> wait after 100 -> ok end,
+    ?assertEqual([], ss_world:call2(?world, Xiaojie, contacts)),
 
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, Res, drop)),

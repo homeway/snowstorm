@@ -3,7 +3,7 @@
 -behaviour(ss_server).
 -export([init/1, model/1]).
 -export([hello/1, hello/2, status/1, status/2, who/1, notify/2, login/3, logout/1]).
--export([contacts/1, invite/2, invite_to_accept/3, invite_from/3, invite_confirm/2]).
+-export([contacts/1, invite/2, invite_to_accept/3, invite_to_refuse/3, invite_from/3, invite_accept/2, invite_refuse/2]).
 
 -define(offline, {service, offline}).
 
@@ -176,14 +176,14 @@ invite(To, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
         end
     end, S).
 
-%% 收到联系人邀请
-invite_from(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
+%% 收到联系人邀请, 请求连接槽同意
+invite_from(TrackId, From, S) ->
     force_login(fun() ->
         [Sub ! {invite_from, TrackId, From} || Sub <- maps:get(slots, S, [])],
         {ok, S}
     end, S).
 
-%% 收到联系人邀请
+%% 接受联系人邀请
 invite_to_accept(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
         Data = Db:find(Res, Id),
@@ -191,21 +191,38 @@ invite_to_accept(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Acc
         case lists:keymember(From, 1, Contacts) of
             true -> {already_contact, S};
             false ->
-                erlang:display("invite_from ......"),
+                erlang:display("to accept ......"),
                 erlang:display(From),
                 % 更新对方为自己的联系人
                 New = [{From, #{rel=>double}}|Contacts],
                 ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
                 % 发送邀请通过的通知
-                ss_world:send2(World, {account, From}, [invite_confirm, Account]),
+                ss_world:send2(World, {account, From}, [invite_accept, Account]),
                 % 清理离线通知
                 ss_world:send2(World, ?offline, [delete, TrackId]),
                 {ok, S#{contacts=>New}}
         end
     end, S).
 
+%% 拒绝联系人邀请
+invite_to_refuse(TrackId, From,  #{world:=World, account:= Account}=S) ->
+    force_login(fun() ->
+        Contacts = maps:get(contacts, S, []),
+        case lists:keymember(From, 1, Contacts) of
+            true -> {already_contact, S};
+            false ->
+                erlang:display("to refuse ......"),
+                erlang:display(From),
+                % 发送拒绝邀请的通知
+                ss_world:send2(World, {account, From}, [invite_refuse, Account]),
+                % 清理离线通知
+                ss_world:send2(World, ?offline, [delete, TrackId]),
+                {ok, S}
+        end
+    end, S).
+
 %% 收到接受邀请的确认
-invite_confirm(From, #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
+invite_accept(From, #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
         Data = Db:find(Res, Id),
         Contacts = maps:get(contacts, S, []),
@@ -222,6 +239,12 @@ invite_confirm(From, #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id
                 ss_world:send2(World, {account, From}, [notify, {online, Account}]),
                 {ok, S#{contacts=>New}}
         end
+    end, S).
+
+%% 收到接受邀请的确认
+invite_refuse(_From, S) ->
+    force_login(fun() ->
+        {ok, S}
     end, S).
 
 %% (避免重复)添加元素到列表
