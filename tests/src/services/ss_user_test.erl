@@ -10,7 +10,7 @@ to_test() ->
     ?assertEqual([], ss_world:all2(?world)),
 
     %% reg_server ss_user
-    Res = {res, user},
+    Res = {res, account},
     ss_world:reg_server2(?world, Res, ss_user, [#{res=>ss_user2}]),
     ?assertEqual(true, is_pid(ss_world:find2(?world, Res))),
 
@@ -31,11 +31,11 @@ to_test() ->
     clear_msg(),
 
     %% 首先启动用户"adi"
-    P2 = {user, "adi"},
+    P2 = {account, "adi"},
     M2 = ss_world:call2(?world, Res, [model, all]),
     D2 = #{account => "adi", password => "123456", contacts => [{"yifan", #{rel=>double}}]},
     {ok, Id2} = ss_world:call2(?world, Res, [create, D2, M2]),
-    ss_world:call2(?world, Res, [find, Id2]),
+    erlang:display(ss_world:call2(?world, Res, [find, Id2])),
     ss_world:reg_server2(?world, P2, ss_user, [#{res=>ss_user2}]),
     ss_world:call2(?world, P2, [connect, self()]),
     ?assertMatch(not_login, ss_world:call2(?world, P2, status)),
@@ -43,7 +43,7 @@ to_test() ->
     ?assertMatch("online", ss_world:call2(?world, P2, status)),
 
     %% 添加订阅列表到"yifan"
-    P3 = {user, "yifan"},
+    P3 = {account, "yifan"},
     M3 = ss_world:call2(?world, Res, [model, contacts]),
     D3 = #{contacts => [{"adi", #{rel=>double}}, {"homeway", #{rel=>single}}]},
     ?assertMatch(ok, ss_world:call2(?world, Res, [update, Id1, D3, M3])),
@@ -65,9 +65,9 @@ to_test() ->
     Contacts2 = [{"adi", #{rel=>double, status=>"online"}}, {"homeway", #{rel=>single, status=>"offline"}}],
     ?assertEqual(Contacts2, ss_world:call2(?world, P3, contacts)),
 
-    %% 申请成为联系人
+    %% 添加联系人
     %%
-    P4 = {user, "homeway"},
+    P4 = {account, "homeway"},
     D4 = #{account => "homeway", password => "123456"},
     ?assertMatch({ok, _}, ss_world:call2(?world, Res, [create, D4, M1])),
     ss_world:reg_server2(?world, P4, ss_user, [#{res=>ss_user2}]),
@@ -82,10 +82,12 @@ to_test() ->
     %% 邀请对方加为联系人
     erlang:display("invite adi to contact homeway"),
     erlang:display(ss_world:call2(?world, P2, info)),
+    erlang:display(ss_world:call2(?world, Res, [find, Id2])),
     ss_world:send2(?world, P2, [invite, "homeway"]),
     clear_msg(),
     erlang:display(ss_world:call2(?world, P2, info)),
-    Contacts5 = [{"homeway", #{rel=>double, status=>"online"}, {"yifan", #{rel=>double, status=>"online"}}}],
+    erlang:display(ss_world:call2(?world, Res, [find, Id2])),
+    Contacts5 = [{"homeway", #{rel=>double, status=>"online"}}, {"yifan", #{rel=>double, status=>"online"}}],
     ?assertEqual(Contacts5, ss_world:call2(?world, P2, contacts)),
 
     %% stop the world

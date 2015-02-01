@@ -9,10 +9,10 @@
 
 %% ss_server api
 init([Config]) when is_map(Config) ->
-    Default = #{db=>ss_nosqlite, res=>user, id=>not_login},
+    Default = #{db=>ss_nosqlite, res=>account, account=>not_login, id=>not_login},
     {ok, maps:merge(Default, Config)};
 init([]) ->
-    Default = #{db=>ss_nosqlite, res=>user, id=>not_login},
+    Default = #{db=>ss_nosqlite, res=>account, account=>not_login, id=>not_login},
     {ok, Default}.
 
 model(all) -> ss_model:confirm_model([
@@ -39,15 +39,15 @@ model(message) -> ss_model:confirm_model([
 model(_) -> [].
 
 %% call who
-who(#{id:=Id}=S) -> {Id, S}.
+who(#{account:=Account}=S) -> {Account, S}.
 
 %% call hello
-hello(#{db:=Db, res:=Res, id:=Id}=S) ->
+hello(#{db:=Db, res:=Res, account:=Account}=S) ->
     force_login(fun() ->
-        {Db:find(Res, Id), S}
+        {Db:find(Res, Account), S}
     end, S).
 
-%% user state and sign string
+%% account state and sign string
 %% 读取状态
 status(S) ->
     force_login(fun() ->
@@ -59,72 +59,22 @@ status(Status, S) ->
         {ok, S#{status=>Status}}
     end, S).
 
-%% 读取联系人
-contacts(S) ->
-    force_login(fun() ->
-        {maps:get(contacts, S, []), S}
-    end, S).
-
-%% 设置联系人, 成为single类型联系人
-%%   1) 联系人已存在, 直接返回
-%%   2) 联系人不存在, 创建数据记录，并添加到进程状态
-%%   3) 未登录
-contact(To, #{db:=Db, res:=Res, id:=Id}=S) ->
-    force_login(fun() ->
-        Data = Db:find(Res, Id),
-        Contacts = ss_model:value(contacts, Data, []),
-        case lists:keymember(To, 1, Contacts) of
-            true -> {ok, S};
-            false ->
-                New = [{To, #{rel=>single}}|Contacts],
-                ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
-                {ok, S#{contacts=>reload_contacts(S)}}
-        end
-    end, S).
-reload_contacts(#{db:=Db, res:=Res, id:=Id}=S) ->
-    Data = Db:find(Res, Id),
-    Contacts0 = ss_model:value(contacts, Data, []),
-    Contacts1 = maps:get(contacts, S, []),
-    lists:map(fun({K, V}) ->
-        Info = proplists:get_value(K, Contacts1, #{}),
-        case maps:get(status, Info, "offline") of
-            "offline" -> {K, V#{status=>"offline"}};
-            Status ->    {K, V#{status=>Status}}
-        end
-    end, Contacts0).
-
-%% 邀请成为联系人
-%% 1) 更新自己的联系人列表
-%% 2) 发送出席消息
-invite(From, #{world:=World}=S) ->
-    % 更新对方为自己的联系人
-    case contact(From, S) of
-        {R1, S1} ->
-            case maps:get(user, S, undefined) of
-                undefined -> nothing;
-                User -> ss_world:send2(World, {user, From}, [notify, {online, User}])
-            end,
-            {R1, S1};
-        _ -> {error, S}
-    end.
-
 %% login and logout
-login(User, Pass, #{id:=not_login}=S) ->
+login(Account, Pass, #{account:=not_login, id:=not_login}=S) ->
     #{world:=World, db:=Db, res:=Res}=S,
-    case check_password(Db, Res, User, Pass) of
+    case check_password(Db, Res, Account, Pass) of
         {true, Data} ->
             % 从数据库读取联系人信息
             Contacts = ss_model:value(contacts, Data, []),
             % 广播出席通知
-            Subs = [{user, Account} || {Account, _} <- Contacts],
-            [ss_world:send2(World, Sub, [notify, {online, User}]) || Sub <- Subs], 
-            % 初始化联系人状态为离线
-            ContactsS = [{Account, Info#{status=>"offline"}} || {Account, Info} <- Contacts],
-            {ok, S#{id=>ss_model:value('_key', Data), user=>User, contacts=>ContactsS}};
+            Subs = [{account, Account} || {Account, _} <- Contacts],
+            [ss_world:send2(World, Sub, [notify, {online, Account}]) || Sub <- Subs], 
+            % 初始化联系人列表, 活跃map为空
+            {ok, S#{id=>ss_model:value('_key', Data), account=>Account, contacts=>Contacts, living=>#{}}};
         {error, Reason} -> {{error, Reason}, S}
     end;
 login(_Id, _Pass, S) -> {already_login, S}.
-logout(S) -> {ok, S#{id=>not_login}}.
+logout(S) -> {ok, S#{account=>not_login, id=>not_login}}.
 
 check_password(Db, Res, Account, Pass) ->
     Data = Db:find(Res, account, Account),
@@ -139,12 +89,12 @@ check_password(Db, Res, Account, Pass) ->
 
 %% force login
 force_login(Fun, S) ->
-    case maps:get(id, S, not_login) of
+    case maps:get(account, S, not_login) of
         not_login -> {not_login, S};
         _ -> Fun()
     end.
 force_login(Fun, From, S) ->
-    case maps:get(id, S, not_login) of
+    case maps:get(account, S, not_login) of
         not_login -> From ! not_login;
         _ -> From ! Fun()
     end.
@@ -161,33 +111,87 @@ hello(From, S) ->
 %% 上线出席通知
 %% 若contact关系为double, 则发送出席回执
 %% 若存在slots, 则转发erlang消息给连接者
-notify({online, From}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
-    Contacts = maps:get(contacts, S, []),
-    case maps:get(id, S, not_login) of
-        not_login -> not_login;
-        Id ->
-            Data = Db:find(Res, Id),
-            MyAccount = ss_model:value(account, Data),
+notify({online, From}, #{world:=World}=S) ->
+    % 收到出席通知
+    case maps:get(account, S, not_login) of
+        not_login -> {not_login, S};
+        Account ->
+            Contacts = maps:get(contacts, S, []),
             case lists:keymember(From, 1, Contacts) of
-                true -> ss_world:send2(World, {user, From}, [notify, {confirm, online, MyAccount}]);
-                _ -> single_contact
+                true ->
+                    % 发送出席回执
+                    ss_world:send2(World, {account, From}, [notify, {confirm, online, Account}]),
+                    % 发给slot连接者
+                    Slots = maps:get(slots, S, []),
+                    [P ! {online, From} || P <- Slots],
+                    % 仅加入到living状态
+                    Living = maps:get(living, S, []), 
+                    {ok, S#{living=>maps:put(From, "online", Living)}};
+                _ ->
+                    {single_contact, S}
             end
-    end,
-    Slots = maps:get(slots, S, []),
-    [P ! {online, From} || P <- Slots],
-    {ok, S#{contacts=>update_contact(From, "online", Contacts)}};
-notify({confirm, online, From}, S) ->
-    % 更新联系人关系, 从single到double
-    % 更新联系人状态
-    Contacts = maps:get(contacts, S, []),
-    Slots = maps:get(slots, S, []),
-    [P ! {online, From} || P <- Slots],
-    {ok, S#{contacts=>update_contact(From, "online", Contacts)}}.
-update_contact(From, Status, Contacts) ->
-    case lists:keyfind(From, 1, Contacts) of
-        false -> [];
-        {From, Info} when is_map(Info) ->
-            New = {From, Info#{status=>Status}},
-            lists:keyreplace(From, 1, Contacts, New);
-        Contacts1 -> Contacts1
+    end;
+notify({confirm, online, From}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
+    % 收到出席通知的回执
+    case maps:get(account, S, not_login) of
+        not_login -> {not_login, S};
+        Account ->
+            Contacts = maps:get(contacts, S, []),
+            case lists:keyfind(From, 1, Contacts) of
+                false ->
+                    {single_contact, S};
+                {K, Info} ->
+                    % 将联系人状态从single修改为double
+                    erlang:display("notify received ..........."),
+                    erlang:display(Contacts),
+                    New = lists:keyreplace(K, 1, Contacts, {K, Info#{rel=>double}}),
+                    erlang:display(New),
+                    % 存储
+                    ok=Db:update(Res, Id, #{<<"contacts">> =>New}),
+                    % 发给slot连接者
+                    Slots = maps:get(slots, S, []),
+                    [P ! {online, From} || P <- Slots],
+                    % 仅加入到living状态
+                    Living = maps:get(living, S, []), 
+                    {ok, S#{contacts=>New, living=>maps:put(From, "online", Living)}}
+            end
     end.
+
+%% 读取联系人, 合并在线状态
+contacts(S) ->
+    force_login(fun() ->
+        Contacts = maps:get(contacts, S, []),
+        Living = maps:get(living, S, #{}),
+        {[{K, I#{status=>maps:get(K, Living, "offline")}} || {K, I} <- Contacts], S}
+    end, S).
+
+%% 设置联系人, 成为single类型联系人
+%%   1) 联系人已存在, 直接返回
+%%   2) 联系人不存在, 创建数据记录，并添加到进程状态
+%%   3) 未登录
+contact(To, #{db:=Db, res:=Res, id:=Id}=S) ->
+    force_login(fun() ->
+        Data = Db:find(Res, Id),
+        Contacts = maps:get(contacts, S, []),
+        case lists:keymember(To, 1, Contacts) of
+            true -> {already_contact, S};
+            false ->
+                New = [{To, #{rel=>single}}|Contacts],
+                ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
+                {ok, S#{contacts=>New}}
+        end
+    end, S).
+
+%% 邀请成为联系人的请求
+invite(From, #{world:=World}=S) ->
+    % 更新对方为自己的联系人
+    case contact(From, S) of
+        {ok, S1} ->
+            case maps:get(account, S, undefined) of
+                undefined -> nothing;
+                Account -> ss_world:send2(World, {account, From}, [notify, {online, Account}])
+            end,
+            {ok, S1};
+        _ -> {error, S}
+    end.
+
