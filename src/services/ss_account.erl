@@ -2,10 +2,8 @@
 -module(ss_account).
 -behaviour(ss_server).
 -export([init/1, model/1]).
-%% call callback
--export([hello/1, status/1, status/2, invite/2, contacts/1, who/1, login/3, logout/1]).
-%% cast callback
--export([hello/2, notify/2, invite_from/3, invite_confirm/2]).
+-export([hello/1, hello/2, status/1, status/2, who/1, notify/2, login/3, logout/1]).
+-export([contacts/1, invite/2, invite_to_accept/3, invite_from/3, invite_confirm/2]).
 
 -define(offline, {service, offline}).
 
@@ -180,6 +178,13 @@ invite(To, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
 
 %% 收到联系人邀请
 invite_from(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
+    force_login(fun() ->
+        [Sub ! {invite_from, TrackId, From} || Sub <- maps:get(slots, S, [])],
+        {ok, S}
+    end, S).
+
+%% 收到联系人邀请
+invite_to_accept(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
         Data = Db:find(Res, Id),
         Contacts = maps:get(contacts, S, []),

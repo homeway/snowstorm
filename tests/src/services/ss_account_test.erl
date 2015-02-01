@@ -86,9 +86,12 @@ to_test() ->
 
     %% homeway添加adi为联系人，双方在线
     erlang:display("homeway add adi >> ........."),
-    ?assertEqual(ok, ss_world:call2(?world, Homeway, [invite, "adi"])),
     clear_msg(),
+    ?assertEqual(ok, ss_world:call2(?world, Homeway, [invite, "adi"])),
+    {invite_from, TrackId1, From1} = got_msg(),
+    ?assertEqual(ok, ss_world:call2(?world, Adi, [invite_to_accept, TrackId1, From1])),
     Contacts4 = [{"adi", #{rel=>double, status=>"online"}}],
+    receive nothing -> wait after 100 -> ok end,
     ?assertEqual(Contacts4, ss_world:call2(?world, Homeway, contacts)),
     Contacts5 = [{"homeway", #{rel=>double, status=>"online"}},
                  {"yifan", #{rel=>double, status=>"online"}}],
@@ -108,10 +111,13 @@ to_test() ->
     %% wenxuan登录后
     ss_world:reg_server2(?world, Wenxuan, ss_account, [#{res=>ss_account2}]),
     ss_world:call2(?world, Wenxuan, [connect, self()]),
-    ?assertMatch(ok, ss_world:call2(?world, Wenxuan, [login, "wenxuan", "123456"])),
     clear_msg(),
+    ?assertMatch(ok, ss_world:call2(?world, Wenxuan, [login, "wenxuan", "123456"])),
     erlang:display("wenxuan login ....."),
     %% wenxuan收到离线邀请, 更新联系人
+    {invite_from, TrackId, From} = got_msg(),
+    ?assertEqual(ok, ss_world:call2(?world, Wenxuan, [invite_to_accept, TrackId, From])),
+    receive nothing -> wait after 100 -> ok end,
     Contacts7 = [{"adi", #{rel=>double, status=>"online"}}],
     ?assertEqual(Contacts7, ss_world:call2(?world, Wenxuan, contacts)),
     %% adi也更新联系人信息
