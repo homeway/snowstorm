@@ -3,7 +3,7 @@
 -module(ss_offline).
 -behaviour(ss_server).
 -export([init/1, model/1]).
--export([invite/3, notify/2]).
+-export([invite/3, invite_accept/3, invite_refuse/3, notify/2]).
 
 %% ss_server api
 init([Config]) when is_map(Config) ->
@@ -20,16 +20,25 @@ model(all) -> ss_model:confirm_model([
 ]).
 
 %% 邀请联系人, 支持离线处理
-invite(From, To, #{world:=World, db:=Db, res:=Res}=S) ->
+invite(From, To, S) ->
+    dispatch(From, To, invite_from, S),
+    {ok, S}.
+invite_accept(From, To, S) ->
+    dispatch(From, To, invite_accept, S),
+    {ok, S}.
+invite_refuse(From, To, S) ->
+    dispatch(From, To, invite_refuse, S),
+    {ok, S}.
+
+dispatch(From, To, Action, #{world:=World, db:=Db, res:=Res}) ->
     % 保存离线邀请, 收到确认后清除
-    Message = [invite_from, From],
+    Message = [Action, From],
     Item = #{<<"receiver">> =>To, <<"message">> =>Message},
     {ok, TrackId}=Db:create(Res, Item),
     % 发送邀请消息
-    erlang:display("invite from invite first........."),
+    erlang:display("dispatch from invite first........."),
     erlang:display(Message),
-    ss_world:send2(World, {account, To}, [invite_from, TrackId, From]),
-    {ok, S}.
+    ss_world:send2(World, {account, To}, [Action, TrackId, From]).
 
 %% 发送离线消息
 %%

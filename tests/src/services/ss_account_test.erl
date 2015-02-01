@@ -129,7 +129,7 @@ to_test() ->
     ?assertEqual([], ss_world:call2(?world, ?offline, all)),
 
     %% 拒绝联系人邀请
-    %% adi添加wenxuan为联系人，但wenxuan不在线
+    %% adi添加xiaojie为联系人
     Xiaojie = {account, "xiaojie"},
     D8 = #{account => "xiaojie", password => "123456"},
     ?assertMatch({ok, _}, ss_world:call2(?world, Res, [create, D8, M1])),
@@ -138,11 +138,32 @@ to_test() ->
     ?assertMatch(ok, ss_world:call2(?world, Xiaojie, [login, "xiaojie", "123456"])),
     clear_msg(),
     ?assertEqual(ok, ss_world:call2(?world, Adi, [invite, "xiaojie"])),
-    %% wenxuan收到邀请, 拒绝
+    %% xiaojie收到邀请, 拒绝
     {invite_from, TrackId8, From8} = got_msg(),
     ?assertEqual(ok, ss_world:call2(?world, Xiaojie, [invite_to_refuse, TrackId8, From8])),
     receive nothing -> wait after 100 -> ok end,
     ?assertEqual([], ss_world:call2(?world, Xiaojie, contacts)),
+
+    %% 考虑发起邀请的人离线后再登录
+    Zhuhao = {account, "zhuhao"},
+    D9 = #{account => "zhuhao", password => "123456"},
+    ?assertMatch({ok, _}, ss_world:call2(?world, Res, [create, D9, M1])),
+    ss_world:reg_server2(?world, Zhuhao, ss_account, [#{res=>ss_account2}]),
+    ss_world:call2(?world, Zhuhao, [connect, self()]),
+    %% xiaoije邀请zhuhao为好友, 然后离线
+    ?assertEqual(ok, ss_world:call2(?world, Xiaojie, [invite, "zhuhao"])),
+    ?assertEqual(ok, ss_world:unreg2(?world, Xiaojie)),
+    %% zhuhao登录, 收到邀请, 同意, 但此时xiaojie已离线
+    clear_msg(),
+    ?assertMatch(ok, ss_world:call2(?world, Zhuhao, [login, "zhuhao", "123456"])),
+    {invite_from, TrackId9, From9} = got_msg(),
+    ?assertEqual(ok, ss_world:call2(?world, Zhuhao, [invite_to_accept, TrackId9, From9])),
+    %% xiaojie重新登录, 应仍能正确获得联系人状态
+    ss_world:reg_server2(?world, Xiaojie, ss_account, [#{res=>ss_account2}]),
+    ?assertMatch(ok, ss_world:call2(?world, Xiaojie, [login, "xiaojie", "123456"])),
+    receive nothing -> wait after 100 -> ok end,
+    Contacts9 = [{"zhuhao", #{rel=>double, status=>"online"}}],
+    ?assertEqual(Contacts9, ss_world:call2(?world, Xiaojie, contacts)),
 
     %% stop the world
     ?assertEqual(ok, ss_world:call2(?world, Res, drop)),
