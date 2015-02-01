@@ -1,5 +1,5 @@
 %% -*- mode: nitrogen -*-
--module(ss_user).
+-module(ss_account).
 -behaviour(ss_server).
 -export([init/1, model/1]).
 %% call callback
@@ -60,17 +60,17 @@ status(Status, S) ->
     end, S).
 
 %% login and logout
-login(Account, Pass, #{account:=not_login, id:=not_login}=S) ->
+login(UserName, Pass, #{account:=not_login, id:=not_login}=S) ->
     #{world:=World, db:=Db, res:=Res}=S,
-    case check_password(Db, Res, Account, Pass) of
+    case check_password(Db, Res, UserName, Pass) of
         {true, Data} ->
             % 从数据库读取联系人信息
             Contacts = ss_model:value(contacts, Data, []),
             % 广播出席通知
             Subs = [{account, Account} || {Account, _} <- Contacts],
-            [ss_world:send2(World, Sub, [notify, {online, Account}]) || Sub <- Subs], 
+            [ss_world:send2(World, Sub, [notify, {online, UserName}]) || Sub <- Subs], 
             % 初始化联系人列表, 活跃map为空
-            {ok, S#{id=>ss_model:value('_key', Data), account=>Account, contacts=>Contacts, living=>#{}}};
+            {ok, S#{id=>ss_model:value('_key', Data), account=>UserName, contacts=>Contacts, living=>#{}}};
         {error, Reason} -> {{error, Reason}, S}
     end;
 login(_Id, _Pass, S) -> {already_login, S}.
@@ -113,49 +113,46 @@ hello(From, S) ->
 %% 若存在slots, 则转发erlang消息给连接者
 notify({online, From}, #{world:=World}=S) ->
     % 收到出席通知
-    case maps:get(account, S, not_login) of
-        not_login -> {not_login, S};
-        Account ->
-            Contacts = maps:get(contacts, S, []),
-            case lists:keymember(From, 1, Contacts) of
-                true ->
-                    % 发送出席回执
-                    ss_world:send2(World, {account, From}, [notify, {confirm, online, Account}]),
-                    % 发给slot连接者
-                    Slots = maps:get(slots, S, []),
-                    [P ! {online, From} || P <- Slots],
-                    % 仅加入到living状态
-                    Living = maps:get(living, S, []), 
-                    {ok, S#{living=>maps:put(From, "online", Living)}};
-                _ ->
-                    {single_contact, S}
-            end
-    end;
-notify({confirm, online, From}, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
+    force_login(fun() ->
+        Account = maps:get(account, S),
+        Contacts = maps:get(contacts, S, []),
+        case lists:keymember(From, 1, Contacts) of
+            true ->
+                % 发送出席回执
+                ss_world:send2(World, {account, From}, [notify, {confirm, online, Account}]),
+                % 发给slot连接者
+                Slots = maps:get(slots, S, []),
+                [P ! {online, From} || P <- Slots],
+                % 仅加入到living状态
+                Living = maps:get(living, S, []), 
+                {ok, S#{living=>maps:put(From, "online", Living)}};
+            _ ->
+                {single_contact, S}
+        end
+    end, S);
+notify({confirm, online, From}, #{db:=Db, res:=Res, id:=Id}=S) ->
     % 收到出席通知的回执
-    case maps:get(account, S, not_login) of
-        not_login -> {not_login, S};
-        Account ->
-            Contacts = maps:get(contacts, S, []),
-            case lists:keyfind(From, 1, Contacts) of
-                false ->
-                    {single_contact, S};
-                {K, Info} ->
-                    % 将联系人状态从single修改为double
-                    erlang:display("notify received ..........."),
-                    erlang:display(Contacts),
-                    New = lists:keyreplace(K, 1, Contacts, {K, Info#{rel=>double}}),
-                    erlang:display(New),
-                    % 存储
-                    ok=Db:update(Res, Id, #{<<"contacts">> =>New}),
-                    % 发给slot连接者
-                    Slots = maps:get(slots, S, []),
-                    [P ! {online, From} || P <- Slots],
-                    % 仅加入到living状态
-                    Living = maps:get(living, S, []), 
-                    {ok, S#{contacts=>New, living=>maps:put(From, "online", Living)}}
-            end
-    end.
+    force_login(fun() ->
+        Contacts = maps:get(contacts, S, []),
+        case lists:keyfind(From, 1, Contacts) of
+            false ->
+                {single_contact, S};
+            {K, Info} ->
+                % 将联系人状态从single修改为double
+                erlang:display("notify received ..........."),
+                erlang:display(Contacts),
+                New = lists:keyreplace(K, 1, Contacts, {K, Info#{rel=>double}}),
+                erlang:display(New),
+                % 存储
+                ok=Db:update(Res, Id, #{<<"contacts">> =>New}),
+                % 发给slot连接者
+                Slots = maps:get(slots, S, []),
+                [P ! {online, From} || P <- Slots],
+                % 仅加入到living状态
+                Living = maps:get(living, S, []), 
+                {ok, S#{contacts=>New, living=>maps:put(From, "online", Living)}}
+        end
+    end, S).
 
 %% 读取联系人, 合并在线状态
 contacts(S) ->

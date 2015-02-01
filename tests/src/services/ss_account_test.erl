@@ -1,7 +1,7 @@
 %% -*- mode: nitrogen -*-
--module(ss_user_test).
+-module(ss_account_test).
 -include_lib("eunit/include/eunit.hrl").
--define(world, to_test_ss_user).
+-define(world, to_test_ss_account).
 
 to_test() ->
     %% 启动world
@@ -9,9 +9,9 @@ to_test() ->
     ss_world:destroy2(?world),
     ?assertEqual([], ss_world:all2(?world)),
 
-    %% reg_server ss_user
+    %% reg_server ss_account
     Res = {res, account},
-    ss_world:reg_server2(?world, Res, ss_user, [#{res=>ss_user2}]),
+    ss_world:reg_server2(?world, Res, ss_account, [#{res=>ss_account2}]),
     ?assertEqual(true, is_pid(ss_world:find2(?world, Res))),
 
     %% clear data
@@ -36,7 +36,7 @@ to_test() ->
     D2 = #{account => "adi", password => "123456", contacts => [{"yifan", #{rel=>double}}]},
     {ok, Id2} = ss_world:call2(?world, Res, [create, D2, M2]),
     erlang:display(ss_world:call2(?world, Res, [find, Id2])),
-    ss_world:reg_server2(?world, P2, ss_user, [#{res=>ss_user2}]),
+    ss_world:reg_server2(?world, P2, ss_account, [#{res=>ss_account2}]),
     ss_world:call2(?world, P2, [connect, self()]),
     ?assertMatch(not_login, ss_world:call2(?world, P2, status)),
     ?assertMatch(ok, ss_world:call2(?world, P2, [login, "adi", "123456"])),
@@ -49,7 +49,7 @@ to_test() ->
     ?assertMatch(ok, ss_world:call2(?world, Res, [update, Id1, D3, M3])),
 
     %% 出席
-    ss_world:reg_server2(?world, P3, ss_user, [#{res=>ss_user2}]),
+    ss_world:reg_server2(?world, P3, ss_account, [#{res=>ss_account2}]),
     ss_world:call2(?world, P3, [connect, self()]),
     ?assertMatch(not_login, ss_world:call2(?world, P3, contacts)),
     ?assertMatch(ok, ss_world:call2(?world, P3, [login, "yifan", "123456"])),
@@ -70,7 +70,7 @@ to_test() ->
     P4 = {account, "homeway"},
     D4 = #{account => "homeway", password => "123456"},
     ?assertMatch({ok, _}, ss_world:call2(?world, Res, [create, D4, M1])),
-    ss_world:reg_server2(?world, P4, ss_user, [#{res=>ss_user2}]),
+    ss_world:reg_server2(?world, P4, ss_account, [#{res=>ss_account2}]),
     ?assertMatch(ok, ss_world:call2(?world, P4, [login, "homeway", "123456"])),
     %% 设为自己的联系人
     erlang:display("set homeway to contact adi"),
