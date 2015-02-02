@@ -64,7 +64,7 @@ login(UserName, Pass, #{account:=not_login, id:=not_login}=S) ->
             Subs = [?offline|[{account, Account} || {Account, _} <- Contacts]],
             %erlang:display("login ...."),
             %erlang:display(Subs),
-            [ss_world:send2(World, Sub, [notify, {online, UserName}]) || Sub <- Subs], 
+            [ss_world:send(World, Sub, [notify, {online, UserName}]) || Sub <- Subs], 
             % 初始化联系人列表, 活跃map为空
             {ok, S#{id=>ss_model:value('_key', Data), account=>UserName, contacts=>Contacts, living=>#{}}};
         {error, Reason} -> {{error, Reason}, S}
@@ -115,7 +115,7 @@ notify({online, From}, #{world:=World}=S) ->
         case lists:keymember(From, 1, Contacts) of
             true ->
                 % 发送出席回执
-                ss_world:send2(World, {account, From}, [notify, {confirm, online, Account}]),
+                ss_world:send(World, {account, From}, [notify, {confirm, online, Account}]),
                 % 发给slot连接者
                 Slots = maps:get(slots, S, []),
                 [P ! {online, From} || P <- Slots],
@@ -172,7 +172,7 @@ invite(To, #{world:=World, db:=Db, res:=Res, id:=Id}=S) ->
                 New = Old#{<<"contacts">> => Contacts},
                 ok=Db:update(Res, Id, New),
                 % 发送邀请
-                ss_world:send2(World, ?offline, [invite, Account, To]),
+                ss_world:send(World, ?offline, [invite, Account, To]),
                 {ok, S#{contacts=>Contacts}}
         end
     end, S).
@@ -187,7 +187,7 @@ invite_from(TrackId, From, S) ->
 %% 接受联系人邀请
 invite_to_accept(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
-        ss_world:send2(World, ?offline, [delete, TrackId]),
+        ss_world:send(World, ?offline, [delete, TrackId]),
         Data = Db:find(Res, Id),
         Contacts = maps:get(contacts, S, []),
         case lists:keymember(From, 1, Contacts) of
@@ -199,7 +199,7 @@ invite_to_accept(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Acc
                 New = [{From, #{rel=>double}}|Contacts],
                 ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
                 % 发送邀请通过的通知
-                ss_world:send2(World, ?offline, [invite_accept, Account, From]),
+                ss_world:send(World, ?offline, [invite_accept, Account, From]),
                 {ok, S#{contacts=>New}}
         end
     end, S).
@@ -207,7 +207,7 @@ invite_to_accept(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Acc
 %% 拒绝联系人邀请
 invite_to_refuse(TrackId, From,  #{world:=World, account:= Account}=S) ->
     force_login(fun() ->
-        ss_world:send2(World, ?offline, [delete, TrackId]),
+        ss_world:send(World, ?offline, [delete, TrackId]),
         Contacts = maps:get(contacts, S, []),
         case lists:keymember(From, 1, Contacts) of
             true -> {already_contact, S};
@@ -215,7 +215,7 @@ invite_to_refuse(TrackId, From,  #{world:=World, account:= Account}=S) ->
                 %erlang:display("to refuse ......"),
                 %erlang:display(From),
                 % 发送拒绝邀请的通知
-                ss_world:send2(World, ?offline, [invite_refuse, Account, From]),
+                ss_world:send(World, ?offline, [invite_refuse, Account, From]),
                 {ok, S}
         end
     end, S).
@@ -223,7 +223,7 @@ invite_to_refuse(TrackId, From,  #{world:=World, account:= Account}=S) ->
 %% 收到接受邀请的确认
 invite_accept(TrackId, From, #{world:=World, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
-        ss_world:send2(World, ?offline, [delete, TrackId]),
+        ss_world:send(World, ?offline, [delete, TrackId]),
         Data = Db:find(Res, Id),
         Contacts = maps:get(contacts, S, []),
         case lists:keyfind(From, 1, Contacts) of
@@ -236,7 +236,7 @@ invite_accept(TrackId, From, #{world:=World, db:=Db, res:=Res, account:= Account
                 New = lists:keyreplace(From, 1, Contacts, {From, #{rel=>double}}),
                 ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
                 % 发送在线通知
-                ss_world:send2(World, {account, From}, [notify, {online, Account}]),
+                ss_world:send(World, {account, From}, [notify, {online, Account}]),
                 {ok, S#{contacts=>New}}
         end
     end, S).
@@ -244,7 +244,7 @@ invite_accept(TrackId, From, #{world:=World, db:=Db, res:=Res, account:= Account
 %% 收到接受邀请的确认
 invite_refuse(TrackId, _From, #{world:=World}=S) ->
     force_login(fun() ->
-        ss_world:send2(World, ?offline, [delete, TrackId]),
+        ss_world:send(World, ?offline, [delete, TrackId]),
         {ok, S}
     end, S).
 

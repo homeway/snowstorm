@@ -38,7 +38,7 @@ dispatch(From, To, Action, #{world:=World, db:=Db, res:=Res}) ->
     % 发送邀请消息
     % erlang:display("dispatch from invite first........."),
     % erlang:display(Message),
-    ss_world:send2(World, {account, To}, [Action, TrackId, From]).
+    ss_world:send(World, {account, To}, [Action, TrackId, From]).
 
 %% 发送离线消息
 %%
@@ -52,5 +52,5 @@ notify({online, From}, #{world:=World, db:=Db, res:=Res}=S) ->
         From =:= R
     end, []),
     % erlang:display(Messages),
-    [ss_world:send2(World, {account, From}, [Action,TrackId|Msg]) || #{<<"_key">> := TrackId, <<"message">> := [Action|Msg]} <- Messages],
+    [ss_world:send(World, {account, From}, [Action,TrackId|Msg]) || #{<<"_key">> := TrackId, <<"message">> := [Action|Msg]} <- Messages],
     {ok, S}.
