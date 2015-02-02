@@ -4,7 +4,8 @@
 -export([init/1, model/1]).
 -export([hello/1, hello/2, status/1, status/2, who/1, notify/2, login/3, logout/1]).
 -export([contacts/1, invite/2, invite_to_accept/3, invite_to_refuse/3,
-        invite_from/3, invite_accept/3, invite_refuse/3]).
+        invite_from/3, invite_accept/3, invite_refuse/3,
+        chat/3, message/4]).
 
 -define(offline, {service, offline}).
 
@@ -250,6 +251,22 @@ invite_refuse(TrackId, From, #{world:=W}=S) ->
         ss_server:dispatch({invite_accept, From}, S),
         % 清理
         W:send(?offline, [delete, TrackId]),
+        {ok, S}
+    end, S).
+
+%% 在线聊天消息
+chat(Message, To, #{world:=W}=S) ->
+    force_login(fun() ->
+        Account = maps:get(account, S),
+        W:send({account, To}, [message, chat, Message, Account]),
+        {ok, S}
+    end, S).
+
+%% 接收在线消息
+message(chat, Message, From, S) ->
+    force_login(fun() ->
+        _Account = maps:get(account, S),
+        ss_server:dispatch({chat, Message, From}, S),
         {ok, S}
     end, S).
 

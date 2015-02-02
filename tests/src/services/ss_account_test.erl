@@ -3,7 +3,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -define(offline, {service, offline}).
 
-to_test() ->
+account_test() ->
     %% 启动world
     W = ss:world(to_test_ss_account),
     W:start(),
@@ -164,6 +164,13 @@ to_test() ->
     receive nothing -> wait after 100 -> ok end,
     Contacts9 = [{"zhuhao", #{rel=>double, status=>"online"}}],
     ?assertEqual(Contacts9, W:call(Xiaojie, contacts)),
+
+    %% zhuhao发给xiaojie在线消息
+    clear_msg(),
+    W:call(Xiaojie, [connect, self()]),
+    Zhu:send([chat, "hello", "xiaojie"]),
+    Msg = got_msg(),
+    ?assertEqual({chat, "hello", "zhuhao"}, Msg),
 
     %% stop the world
     ?assertEqual(ok, W:call(Res, drop)),
