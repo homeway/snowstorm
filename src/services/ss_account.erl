@@ -62,8 +62,8 @@ login(UserName, Pass, #{account:=not_login, id:=not_login}=S) ->
             Contacts = ss_model:value(contacts, Data, []),
             % 广播出席通知
             Subs = [?offline|[{account, Account} || {Account, _} <- Contacts]],
-            erlang:display("login ...."),
-            erlang:display(Subs),
+            %erlang:display("login ...."),
+            %erlang:display(Subs),
             [ss_world:send2(World, Sub, [notify, {online, UserName}]) || Sub <- Subs], 
             % 初始化联系人列表, 活跃map为空
             {ok, S#{id=>ss_model:value('_key', Data), account=>UserName, contacts=>Contacts, living=>#{}}};
@@ -137,8 +137,8 @@ notify({confirm, online, From}, #{db:=Db, res:=Res, id:=Id}=S) ->
                 % 将联系人状态从single修改为double
                 New = lists:keyreplace(K, 1, Contacts, {K, Info#{rel=>double}}),
                 % 存储
-                erlang:display("notify confirm ........"),
-                erlang:display(New),
+                %erlang:display("notify confirm ........"),
+                %erlang:display(New),
                 ok=Db:update(Res, Id, #{<<"contacts">> =>New}),
                 % 发给slot连接者
                 Slots = maps:get(slots, S, []),
@@ -193,8 +193,8 @@ invite_to_accept(TrackId, From,  #{world:=World, db:=Db, res:=Res, account:= Acc
         case lists:keymember(From, 1, Contacts) of
             true -> {already_contact, S};
             false ->
-                erlang:display("to accept ......"),
-                erlang:display(From),
+                %erlang:display("to accept ......"),
+                %erlang:display(From),
                 % 更新对方为自己的联系人
                 New = [{From, #{rel=>double}}|Contacts],
                 ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
@@ -212,8 +212,8 @@ invite_to_refuse(TrackId, From,  #{world:=World, account:= Account}=S) ->
         case lists:keymember(From, 1, Contacts) of
             true -> {already_contact, S};
             false ->
-                erlang:display("to refuse ......"),
-                erlang:display(From),
+                %erlang:display("to refuse ......"),
+                %erlang:display(From),
                 % 发送拒绝邀请的通知
                 ss_world:send2(World, ?offline, [invite_refuse, Account, From]),
                 {ok, S}
@@ -230,8 +230,8 @@ invite_accept(TrackId, From, #{world:=World, db:=Db, res:=Res, account:= Account
             false ->
                 {not_invited, S};
             _ ->
-                erlang:display("invite_confirm ......"),
-                erlang:display(From),
+                %erlang:display("invite_confirm ......"),
+                %erlang:display(From),
                 % 更新联系人关系
                 New = lists:keyreplace(From, 1, Contacts, {From, #{rel=>double}}),
                 ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),

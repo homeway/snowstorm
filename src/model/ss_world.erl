@@ -38,7 +38,12 @@ start() -> start2(?SERVER).
 stop() -> stop2(?SERVER).
 start_link() -> start_link2(?SERVER).
 
-start2(WorldName) -> gen_server:start({local, WorldName}, ?MODULE, [WorldName], []).
+start2({?MODULE, WN}) -> start2(WN);
+start2(WorldName) ->
+    gen_server:start({local, WorldName}, ?MODULE, [WorldName], []),
+    {?MODULE, WorldName}.
+
+stop2({?MODULE, WorldName}) -> stop2(WorldName);
 stop2(WorldName) -> gen_server:cast(WorldName, stop).
 start_link2(WorldName) -> gen_server:start_link({local, WorldName}, ?MODULE, [WorldName], []).
 
@@ -48,22 +53,42 @@ start_link2(WorldName) -> gen_server:start_link({local, WorldName}, ?MODULE, [Wo
 %% PN is ProcessName
 %% Mod is Module
 %%
+reg2(PN, Mod, {?MODULE, WN}) -> reg2(WN, PN, Mod);
 reg2(WN, PN, Mod) -> reg2(WN, PN, Mod, []).
+
+reg2(PN, Mod, Args, {?MODULE, WN}) -> reg2(WN, PN, Mod, Args);
 reg2(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
     gen_server:call(WN, {reg, PN, Mod, Args}).
 
+reg_server2(PN, Mod, {?MODULE, WN}) -> reg_server2(WN, PN, Mod);
 reg_server2(WN, PN, Mod) -> reg_server2(WN, PN, Mod, []).
+
+reg_server2(PN, Mod, Args, {?MODULE, WN}) -> reg_server2(WN, PN, Mod, Args);
 reg_server2(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
     gen_server:call(WN, {reg, PN, ss_server, [[Mod|Args]]}).
 
+info2(PN, {?MODULE, WN}) -> info2(WN, PN);
 info2(WN, PN)      -> gen_server:call(WN, {info,  PN}).
+
+unreg2(PN, {?MODULE, WN}) -> unreg2(WN, PN);
 unreg2(WN, PN)     -> gen_server:call(WN, {unreg, PN}).
+
+call2(PN, Req, {?MODULE, WN}) -> call2(WN, PN, Req);
 call2(WN, PN, Req) -> gen_server:call(WN, {call,  PN, Req}).
+
+find2(PN, {?MODULE, WN}) -> find2(WN, PN);
 find2(WN, PN)      -> gen_server:call(WN, {find,  PN}).
+
+all2({?MODULE, WN}) -> all2(WN);
 all2(WN)           -> gen_server:call(WN, all).
+
+clear2({?MODULE, WN}) -> clear2(WN);
 clear2(WN)         -> gen_server:call(WN, clear).
+
+destroy2({?MODULE, WN}) -> destroy2(WN);
 destroy2(WN)       -> gen_server:call(WN, destroy).
 
+send2(PN, Msg, {?MODULE, WN}) -> send2(WN, PN, Msg);
 send2(WN, PN, Msg) -> gen_server:cast(WN, {send,  PN, Msg}).
 
 %% api with default name of ss_world

@@ -2,6 +2,9 @@
 -module(ss).
 -compile(export_all).
 
+%%
+module({M, Args}) -> {M, Args}.
+
 %% utils ----------------------------------------------------
 to_binary(Term)     -> ss_convert:to_binary(Term).
 to_list(Term)       -> ss_convert:to_list(Term).
