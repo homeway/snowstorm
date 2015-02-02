@@ -20,7 +20,7 @@
 
 %% common world api
 -export([start_link/1, start/1, stop/1]).
--export([all/1, info/2, clear/1, destroy/1, find/2, send/3, call/2, call/3,
+-export([all/1, info/2, clear/1, destroy/1, find/2, send/2, send/3, call/2, call/3,
     reg/3, reg/4, reg_server/3, reg_server/4, unreg/2]).
 
 %% gen_server callback
@@ -84,6 +84,8 @@ clear(WN)         -> gen_server:call(WN, clear).
 
 destroy({?MODULE, WN}) -> destroy(WN);
 destroy(WN)       -> gen_server:call(WN, destroy).
+
+send(Msg, {?MODULE, {WN, PN}}) -> send(WN, PN, Msg).
 
 send(PN, Msg, {?MODULE, WN}) -> send(WN, PN, Msg);
 send(WN, PN, Msg) -> gen_server:cast(WN, {send,  PN, Msg}).
