@@ -15,14 +15,18 @@
 -export([init/1, search/3]).
 
 %% 表初始化
+init({?MODULE, Table}) -> init(Table);
 init(Table) ->
     Filename = io_lib:format("data/~s.nosqlite", [ss:to_binary(Table)]),
     filelib:ensure_dir(Filename),
     dets:open_file(Table, [{type, set}, {file, Filename}, {repair, true}]).
+
+close({?MODULE, Table}) -> close(Table);
 close(Table) ->
     dets:close(Table).
 
 %% 删除所有数据
+drop({?MODULE, Table}) -> drop(Table);
 drop(Table) ->
     init(Table),
     R = dets:delete_all_objects(Table),
@@ -32,10 +36,12 @@ drop(Table) ->
 %% 创建数据，返回{ok, Id}
 %% Data应为maps类型
 %% 自动插入创建和最后修改时间时间戳, 使用ISO标准格式
+create(Data, {?MODULE, Table}) -> create(Table, Data);
 create(Table, Data) ->
     {_, S, Ms} = now(),
     Id = ss:to_binary(io_lib:format("~B-~6..0B", [S, Ms])),
     create(Table, Id, Data).
+create(Key, Data, {?MODULE, Table}) -> create(Table, Key, Data);
 create(Table, Key, Data1) ->
     Id = ss:to_binary(Key),
     init(Table),
@@ -54,6 +60,7 @@ find_bare(Table, Id) ->
         [{_K, Result}|_] -> Result;
         [] -> notfound
     end.
+find(Key, {?MODULE, Table}) -> find(Table, Key);
 find(Table, Key) ->
     Id = ss:to_binary(Key),
     init(Table),
@@ -61,6 +68,7 @@ find(Table, Key) ->
     close(Table),
     R.
 %% 使用任意字段查询
+find(Key, Value, {?MODULE, Table}) -> find(Table, Key, Value);
 find(Table, Key1, Value) ->
     Key = ss:to_binary(Key1),
     init(Table),
@@ -74,6 +82,7 @@ find(Table, Key1, Value) ->
     end.
 
 %% 部分更新数据，返回ok | notfound
+update(Key, Data, {?MODULE, Table}) -> update(Table, Key, Data);
 update(Table, Key, Data1) ->
     Id = ss:to_binary(Key),
     init(Table),
@@ -91,6 +100,7 @@ update(Table, Key, Data1) ->
     end.
 
 %% 删除
+delete(Key, {?MODULE, Table}) -> delete(Table, Key);
 delete(Table, Key) ->
     Id = ss:to_binary(Key),
     init(Table),
@@ -100,6 +110,7 @@ delete(Table, Key) ->
 %% 搜索
 %% Cond 条件
 %% Option 选项: [{start, Start}, {count, Count}, {sort, Sort}]
+search(Fun, Options, {?MODULE, Table}) -> search(Table, Fun, Options);
 search(Table, Fun, Options) ->
     init(Table),
     Count = proplists:get_value(count, Options, -1),
@@ -123,5 +134,6 @@ search_acc(Table, K, Fun, Acc, Count) ->
     end.
 
 %% 遍历所有数据
+all({?MODULE, Table}) -> all(Table);
 all(Table) ->
     search(Table, fun(_Obj) -> true end, []).
