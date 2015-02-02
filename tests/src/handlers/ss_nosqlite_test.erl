@@ -2,40 +2,29 @@
 -module(ss_nosqlite_test).
 -include_lib("eunit/include/eunit.hrl").
 
--define(db, ss_nosqlite).
--define(tab, test_user).
-
-drop(Tab) -> ?db:drop(Tab).
-create(Tab, Data) -> ?db:create(Tab, Data).
-create(Tab, Id, Data) -> ?db:create(Tab, Id, Data).
-find(Tab, Id) -> ?db:find(Tab, Id).
-find(Tab, Id, V) -> ?db:find(Tab, Id, V).
-update(Tab, Id, Data) -> ?db:update(Tab, Id, Data).
-delete(Tab, Id) -> ?db:delete(Tab, Id).
-all(Tab) -> ?db:all(Tab).
-
 db_test() ->
+    T = {ss_nosqlite, test_user},
     %% 清理
-    ?assertEqual(ok, drop(?tab)),
+    ?assertEqual(ok, T:drop()),
 
     %% 正确的CRUD操作
     D1 = #{<<"name">> => "yifan", <<"age">> => 10},
     D2 = #{<<"age">> => 11},
     %% create
-    {ok, Id1} = create(?tab, D1),
-    {ok, Id2} = create(?tab, <<"001">>, D1),
+    {ok, Id1} = T:create(D1),
+    {ok, Id2} = T:create(<<"001">>, D1),
     ?assertEqual(true, is_binary(Id1)),
     ?assertEqual(<<"001">>, Id2),
     %% find
-    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, find(?tab, Id1)),
-    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, find(?tab, "name", "yifan")),
+    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, T:find(Id1)),
+    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 10}, T:find("name", "yifan")),
     %% update
-    ?assertEqual(ok, update(?tab, Id1, D2)),
-    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 11}, find(?tab, Id1)),
+    ?assertEqual(ok, T:update(Id1, D2)),
+    ?assertMatch(#{<<"name">> := "yifan", <<"age">> := 11}, T:find(Id1)),
     %% all
-    ?assertEqual(2, length(all(?tab))),
+    ?assertEqual(2, length(T:all())),
     %% delete
-    ?assertEqual(ok, delete(?tab, Id1)),
-    ?assertEqual(1, length(all(?tab))),
-    ?assertEqual(notfound, find(?tab, Id1)).
+    ?assertEqual(ok, T:delete(Id1)),
+    ?assertEqual(1, length(T:all())),
+    ?assertEqual(notfound, T:find(Id1)).
 
