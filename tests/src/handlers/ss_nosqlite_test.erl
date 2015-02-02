@@ -3,7 +3,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 db_test() ->
-    T = ss:module({ss_nosqlite, test_user}),
+    T = ss:nosqlite(test_user),
     %% 清理
     ?assertEqual(ok, T:drop()),
 

@@ -7,10 +7,10 @@
 
 %% ss_server api
 init([Config]) when is_map(Config) ->
-    Default = #{db=>ss_nosqlite, res=>contact_invite},
+    Default = #{db=>ss:db(ss_nosqlite, snowstorm_offline)},
     {ok, maps:merge(Default, Config)};
 init([]) ->
-    Default = #{db=>ss_nosqlite, res=>contact_invite},
+    Default = #{db=>ss:db(ss_nosqlite, snowstorm_offline)},
     {ok, Default}.
 
 %% 
@@ -30,11 +30,11 @@ invite_refuse(From, To, S) ->
     dispatch(From, To, invite_refuse, S),
     {ok, S}.
 
-dispatch(From, To, Action, #{world:=W, db:=Db, res:=Res}) ->
+dispatch(From, To, Action, #{world:=W, db:=Db}) ->
     % 保存离线邀请, 收到确认后清除
     Message = [Action, From],
     Item = #{<<"receiver">> =>To, <<"message">> =>Message},
-    {ok, TrackId}=Db:create(Res, Item),
+    {ok, TrackId}=Db:create(Item),
     % 发送邀请消息
     % erlang:display("dispatch from invite first........."),
     % erlang:display(Message),
@@ -45,10 +45,10 @@ dispatch(From, To, Action, #{world:=W, db:=Db, res:=Res}) ->
 %% 要求接收方从离线服务删除的消息包括:
 %%   1) invite_from
 %%   2) offline_message
-notify({online, From}, #{world:=W, db:=Db, res:=Res}=S) ->
+notify({online, From}, #{world:=W, db:=Db}=S) ->
     % 收到出席通知
     % erlang:display("notify from offline....."),
-    Messages = Db:search(Res, fun(#{<<"receiver">> := R}) ->
+    Messages = Db:search(fun(#{<<"receiver">> := R}) ->
         From =:= R
     end, []),
     % erlang:display(Messages),

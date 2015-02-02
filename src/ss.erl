@@ -6,6 +6,10 @@
 world() -> {ss_world, snowstorm_world}.
 world(Name) -> {ss_world, Name}.
 
+%% db api
+db(Db, Res) -> {Db, Res}.
+nosqlite(Res) -> {ss_nosqlite, Res}.
+
 %% utils ----------------------------------------------------
 to_binary(Term)     -> ss_convert:to_binary(Term).
 to_list(Term)       -> ss_convert:to_list(Term).

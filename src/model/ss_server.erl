@@ -82,27 +82,20 @@ connect(Pid, S) ->
 
 %% db action ------------------------------------------------------
 %% Data is a db map #{Key=>Value}
-create(Data, M0, #{db:=Db, res:=Res}=S) ->
+create(Data, M0, #{db:=D}=S) ->
     validate(Data, M0, S, fun() ->
-        Db:create(Res, Data)
+        D:create(Data)
     end).
 
-update(K, Data, M0, #{db:=Db, res:=Res}=S) ->
+update(K, Data, M0, #{db:=D}=S) ->
     validate(Data, M0, S, fun() ->
-        Db:update(Res, K, Data)
+        D:update(K, Data)
     end).
 
-delete(K, #{db:=Db, res:=Res}=S) ->
-    {Db:delete(Res, K), S}.
-
-find(K, #{db:=Db, res:=Res}=S) ->
-    {Db:find(Res, K), S}.
-
-all(#{db:=Db, res:=Res}=S) ->
-    {Db:all(Res), S}.
-
-drop(#{db:=Db, res:=Res}=S) ->
-    {Db:drop(Res), S}.
+delete(K, #{db:=D}=S) -> {D:delete(K), S}.
+find  (K, #{db:=D}=S) -> {D:find(K), S}.
+all      (#{db:=D}=S) -> {D:all(), S}.
+drop     (#{db:=D}=S) -> {D:drop(), S}.
 
 %% private ------------------------------------------------------------
 %%
@@ -110,10 +103,10 @@ drop(#{db:=Db, res:=Res}=S) ->
 %% force to check the return type
 handle_delegate(Mod, Fun, Args, S) ->
     case erlang:function_exported(Mod, Fun, length(Args)+1) of
-        true -> {_Result, #{world:=_, mod:=_, res:=_, db:=_}} = apply(Mod, Fun, Args++[S]);
+        true -> {_Result, #{world:=_, mod:=_, db:=_}} = apply(Mod, Fun, Args++[S]);
         false ->
             case erlang:function_exported(?MODULE, Fun, length(Args)+1) of
-                true -> {_Result, #{world:=_, mod:=_, res:=_, db:=_}} = apply(?MODULE, Fun, Args++[S]);
+                true -> {_Result, #{world:=_, mod:=_, db:=_}} = apply(?MODULE, Fun, Args++[S]);
                 false -> {{error, no_action, [Mod, Fun, Args]}, S}
             end
     end.

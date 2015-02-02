@@ -15,7 +15,7 @@ to_test() ->
     ?assertEqual(true, is_pid(W:find(P1))),
 
     %% call info
-    ?assertMatch(#{db:=_Db, res:=_Res}, W:call(P1, info)),
+    ?assertMatch(#{db:=_Db}, W:call(P1, info)),
 
     %% call model
     ?assertMatch([], W:call(P1, [model, undefined])),

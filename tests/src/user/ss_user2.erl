@@ -5,7 +5,7 @@
 -export([hello/1, status/1, status/2, who/1, login/3, logout/1, notify/2]).
 
 %% ss_server api
-init(_) -> {ok, #{db=>ss_nosqlite, res=>user, id=>not_login}}.
+init(_) -> {ok, #{db=>ss:nosqlite(ss_user2), id=>not_login}}.
 
 model(all) -> ss_model:confirm_model([
     {"类型", #{value=>"普通会员", validate=>[required]}},
@@ -26,9 +26,9 @@ model(_) -> [].
 
 %% helper info
 who(#{id:=Id}=S) -> {Id, S}.
-hello(#{db:=Db, res:=Res, id:=Id}=S) ->
+hello(#{db:=Db, id:=Id}=S) ->
     force_login(fun() ->
-        {Db:find(Res, Id), S}
+        {Db:find(Id), S}
     end, S).
 
 %% user state and sign string
@@ -44,16 +44,16 @@ status(Status, S) ->
     end, S).
 
 %% login and logout
-login(User, Pass, #{db:=Db, res:=Res, id:=not_login}=S) ->
-    case check_password(Db, Res, User, Pass) of
+login(User, Pass, #{db:=Db, id:=not_login}=S) ->
+    case check_password(Db, User, Pass) of
         {true, Id} -> {ok, S#{id=>Id}};
         {error, Reason} -> {{error, Reason}, S}
     end;
 login(_Id, _Pass, S) -> {already_login, S}.
 logout(S) -> {ok, S#{id=>not_login}}.
 
-check_password(Db, Res, Account, Pass) ->
-    User = Db:find(Res, "账户名", Account),
+check_password(Db, Account, Pass) ->
+    User = Db:find("账户名", Account),
     case User of
         notfound -> {error, "账户不存在"};
         #{<<"_key">> :=Id} ->

@@ -10,10 +10,10 @@
 
 %% ss_server api
 init([Config]) when is_map(Config) ->
-    Default = #{db=>ss_nosqlite, res=>account, account=>not_login, id=>not_login},
+    Default = #{db=>ss:db(ss_nosqlite, snowstorm_account), account=>not_login, id=>not_login},
     {ok, maps:merge(Default, Config)};
 init([]) ->
-    Default = #{db=>ss_nosqlite, res=>account, account=>not_login, id=>not_login},
+    Default = #{db=>ss:db(ss_nosqlite, snowstorm_offline), account=>not_login, id=>not_login},
     {ok, Default}.
 
 %% ss_account 所有关键字段
@@ -36,9 +36,9 @@ model(_) -> [].
 who(#{account:=Account}=S) -> {Account, S}.
 
 %% call hello
-hello(#{db:=Db, res:=Res, account:=Account}=S) ->
+hello(#{db:=Db, account:=Account}=S) ->
     force_login(fun() ->
-        {Db:find(Res, Account), S}
+        {Db:find(Account), S}
     end, S).
 
 %% account state and sign string
@@ -55,8 +55,8 @@ status(Status, S) ->
 
 %% login and logout
 login(UserName, Pass, #{account:=not_login, id:=not_login}=S) ->
-    #{world:=W, db:=Db, res:=Res}=S,
-    case check_password(Db, Res, UserName, Pass) of
+    #{world:=W, db:=Db}=S,
+    case check_password(Db, UserName, Pass) of
         {true, Data} ->
             % 从数据库读取联系人信息
             Contacts = ss_model:value(contacts, Data, []),
@@ -72,8 +72,8 @@ login(UserName, Pass, #{account:=not_login, id:=not_login}=S) ->
 login(_Id, _Pass, S) -> {already_login, S}.
 logout(S) -> {ok, S#{account=>not_login, id=>not_login}}.
 
-check_password(Db, Res, Account, Pass) ->
-    Data = Db:find(Res, account, Account),
+check_password(Db, Account, Pass) ->
+    Data = Db:find(account, Account),
     case Data of
         notfound -> {error, "account not exist"};
         _ ->
@@ -126,7 +126,7 @@ notify({online, From}, #{world:=W}=S) ->
                 {single_contact, S}
         end
     end, S);
-notify({confirm, online, From}, #{db:=Db, res:=Res, id:=Id}=S) ->
+notify({confirm, online, From}, #{db:=Db, id:=Id}=S) ->
     % 收到出席通知的回执
     force_login(fun() ->
         Contacts = maps:get(contacts, S, []),
@@ -139,7 +139,7 @@ notify({confirm, online, From}, #{db:=Db, res:=Res, id:=Id}=S) ->
                 % 存储
                 %erlang:display("notify confirm ........"),
                 %erlang:display(New),
-                ok=Db:update(Res, Id, #{<<"contacts">> =>New}),
+                ok=Db:update(Id, #{<<"contacts">> =>New}),
                 % 发给slot连接者
                 Slots = maps:get(slots, S, []),
                 [P ! {online, From} || P <- Slots],
@@ -160,17 +160,17 @@ contacts(S) ->
 %% 添加联系人
 %%   1) 设置single联系人
 %%   2) 发送double联系人邀请
-invite(To, #{world:=W, db:=Db, res:=Res, id:=Id}=S) ->
+invite(To, #{world:=W, db:=Db, id:=Id}=S) ->
     force_login(fun() ->
         case maps:get(account, S, undefined) of
             undefined ->
                 {ok, S};
             Account ->
                 % 更新对方为自己的联系人
-                Old = Db:find(Res, Id),
+                Old = Db:find(Id),
                 Contacts = list_append(To, {To, #{rel=>single}}, maps:get(<<"contacts">>, Old, [])),
                 New = Old#{<<"contacts">> => Contacts},
-                ok=Db:update(Res, Id, New),
+                ok=Db:update(Id, New),
                 % 发送邀请
                 W:send(?offline, [invite, Account, To]),
                 {ok, S#{contacts=>Contacts}}
@@ -185,10 +185,10 @@ invite_from(TrackId, From, S) ->
     end, S).
 
 %% 接受联系人邀请
-invite_to_accept(TrackId, From,  #{world:=W, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
+invite_to_accept(TrackId, From,  #{world:=W, db:=Db, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
         W:send(?offline, [delete, TrackId]),
-        Data = Db:find(Res, Id),
+        Data = Db:find(Id),
         Contacts = maps:get(contacts, S, []),
         case lists:keymember(From, 1, Contacts) of
             true -> {already_contact, S};
@@ -197,7 +197,7 @@ invite_to_accept(TrackId, From,  #{world:=W, db:=Db, res:=Res, account:= Account
                 %erlang:display(From),
                 % 更新对方为自己的联系人
                 New = [{From, #{rel=>double}}|Contacts],
-                ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
+                ok=Db:update(Id, Data#{<<"contacts">> =>New}),
                 % 发送邀请通过的通知
                 W:send(?offline, [invite_accept, Account, From]),
                 {ok, S#{contacts=>New}}
@@ -221,10 +221,10 @@ invite_to_refuse(TrackId, From,  #{world:=W, account:= Account}=S) ->
     end, S).
 
 %% 收到接受邀请的确认
-invite_accept(TrackId, From, #{world:=W, db:=Db, res:=Res, account:= Account, id:=Id}=S) ->
+invite_accept(TrackId, From, #{world:=W, db:=Db, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
         W:send(?offline, [delete, TrackId]),
-        Data = Db:find(Res, Id),
+        Data = Db:find(Id),
         Contacts = maps:get(contacts, S, []),
         case lists:keyfind(From, 1, Contacts) of
             false ->
@@ -234,7 +234,7 @@ invite_accept(TrackId, From, #{world:=W, db:=Db, res:=Res, account:= Account, id
                 %erlang:display(From),
                 % 更新联系人关系
                 New = lists:keyreplace(From, 1, Contacts, {From, #{rel=>double}}),
-                ok=Db:update(Res, Id, Data#{<<"contacts">> =>New}),
+                ok=Db:update(Id, Data#{<<"contacts">> =>New}),
                 % 发送在线通知
                 W:send({account, From}, [notify, {online, Account}]),
                 {ok, S#{contacts=>New}}

@@ -79,10 +79,10 @@ max(K, Field, Len) ->
 %% 2) update with an id
 %%    the value not exist; 
 %%    or the value exist and bound with id in model
-uniq(FName, Field, #{db:=Db, res:=Res}) ->
+uniq(FName, Field, #{db:=Db}) ->
     V = ss_model:value(Field),
     custom(FName, "field must be uniq", fun() ->
-        case Db:find(Res, FName, V) of
+        case Db:find(FName, V) of
             notfound ->
                 true;
             #{<<"_key">> := ExistKey} ->

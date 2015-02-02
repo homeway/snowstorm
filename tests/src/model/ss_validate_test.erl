@@ -20,9 +20,10 @@ model() -> ss_model:confirm_model([
 ]).
 
 check_model_test() ->
-    ?db:drop(?res),
+    Db = ss:nosqlite(ss_validate_user),
+    Db:drop(),
     M0 = ss_model:set([{account, "yifan"}, {sex, femail}], model()),
-    {error, M1} = ss_validate:check(M0, #{db=>?db, res=>?res}),
+    {error, M1} = ss_validate:check(M0, #{db=>Db}),
     M2 = ss_model:confirm_model([
         {account, #{value=>"yifan", validate=>[required, uniq]}},
         {sex, #{type=>select, options=>["男", "女"], value=>femail, error=> <<"the value must be in select options">>}},
@@ -33,10 +34,11 @@ check_model_test() ->
     ]),
     ?assertEqual(M1, M2).
 check_db_test() ->
-    ?db:drop(?res),
+    Db = ss:nosqlite(ss_validate_user),
+    Db:drop(),
     D0 = #{<<"account">> =>"yifan", <<"email">> =>"yifan@gmail", <<"birthday">> =>"0701"},
     M0 = model(),
-    S = #{db=>?db, res=>?res},
+    S = #{db=>Db},
     ?assertMatch({ok, _}, ss_validate:check(ss_model:to_model(D0, M0), S)),
     {ok, _} = ?db:create(?res, D0),
     ?assertMatch({error, _}, ss_validate:check(ss_model:to_model(D0, M0), S)).
