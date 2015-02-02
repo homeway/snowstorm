@@ -5,6 +5,8 @@
 %% world api ------------------------------------------------
 world() -> {ss_world, snowstorm_world}.
 world(Name) -> {ss_world, Name}.
+server({ss_world, World}, Server) -> {ss_world, {World, Server}};
+server(World, Server) -> {ss_world, {World, Server}}.
 
 %% db api
 db(Db, Res) -> {Db, Res}.
