@@ -3,7 +3,8 @@
 -behaviour(gen_server).
 -export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([info/1, model/2, connect/2, create/3, update/4, delete/2, find/2, all/1, drop/1]).
+-export([info/1, model/2, connect/2, connect/3, create/3, update/4, delete/2, find/2, all/1, drop/1]).
+-export([dispatch/2]).
 
 %% ss_server behaviour define ---------------------------------------
 %%
@@ -73,12 +74,20 @@ model(Action, #{mod:=Mod}=S) -> {apply(Mod, model, [Action]), S}.
 
 %% connect to model -----------------------------------------------
 %%    for example, n2o websocket can receive message by messge slots
-connect(Pid, S) ->
+connect(Pid, S) -> connect(Pid, fun(Msg) -> Msg end, S).
+
+%% 允许分发消息时使用模板
+connect(Pid, TempFun, S) when is_pid(Pid) and is_function(TempFun, 1) ->
     Slots = maps:get(slots, S, []),
-    case lists:member(Pid, Slots) of
+    case lists:keymember(Pid, 1, Slots) of
         true ->  {{ok, alread_connected}, S};
-        false -> {{ok, connected}, S#{slots=>[Pid|Slots]}}
+        false -> {{ok, connected}, S#{slots=>[{Pid, TempFun}|Slots]}}
     end.
+
+%% 分发消息
+dispatch(Msg, S) ->
+    Slots = maps:get(slots, S, []),
+    [Pid ! Fun(Msg) || {Pid, Fun} <- Slots].
 
 %% db action ------------------------------------------------------
 %% Data is a db map #{Key=>Value}

@@ -149,14 +149,14 @@ to_test() ->
     D9 = #{account => "zhuhao", password => "123456"},
     ?assertMatch({ok, _}, W:call(Res, [create, D9, M1])),
     Zhu = W:reg_server(Zhuhao, ss_account, [#{db=>Db}]),
-    Zhu:call([connect, self()]),
+    Zhu:call([connect, self(), fun(Msg) -> {server, Msg} end]),
     %% xiaoije邀请zhuhao为好友, 然后离线
     ?assertEqual(ok, W:call(Xiaojie, [invite, "zhuhao"])),
     ?assertEqual(ok, W:unreg(Xiaojie)),
     %% zhuhao登录, 收到邀请, 同意, 但此时xiaojie已离线
     clear_msg(),
     ?assertMatch(ok, Zhu:call([login, "zhuhao", "123456"])),
-    {invite_from, TrackId9, From9} = got_msg(),
+    {server, {invite_from, TrackId9, From9}} = got_msg(),
     ?assertEqual(ok, Zhu:call([invite_to_accept, TrackId9, From9])),
     %% xiaojie重新登录, 应仍能正确获得联系人状态
     W:reg_server(Xiaojie, ss_account, [#{db=>Db}]),

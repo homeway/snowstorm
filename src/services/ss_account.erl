@@ -116,9 +116,8 @@ notify({online, From}, #{world:=W}=S) ->
             true ->
                 % 发送出席回执
                 W:send({account, From}, [notify, {confirm, online, Account}]),
-                % 发给slot连接者
-                Slots = maps:get(slots, S, []),
-                [P ! {online, From} || P <- Slots],
+                % 分发给连接者
+                ss_server:dispatch({online, From}, S),
                 % 仅加入到living状态
                 Living = maps:get(living, S, []), 
                 {ok, S#{living=>maps:put(From, "online", Living)}};
@@ -141,8 +140,7 @@ notify({confirm, online, From}, #{db:=Db, id:=Id}=S) ->
                 %erlang:display(New),
                 ok=Db:update(Id, #{<<"contacts">> =>New}),
                 % 发给slot连接者
-                Slots = maps:get(slots, S, []),
-                [P ! {online, From} || P <- Slots],
+                ss_server:dispatch({online, From}, S),
                 % 仅加入到living状态
                 Living = maps:get(living, S, []), 
                 {ok, S#{contacts=>New, living=>maps:put(From, "online", Living)}}
@@ -180,7 +178,7 @@ invite(To, #{world:=W, db:=Db, id:=Id}=S) ->
 %% 收到联系人邀请, 请求连接槽同意
 invite_from(TrackId, From, S) ->
     force_login(fun() ->
-        [Sub ! {invite_from, TrackId, From} || Sub <- maps:get(slots, S, [])],
+        ss_server:dispatch({invite_from, TrackId, From}, S),
         {ok, S}
     end, S).
 
