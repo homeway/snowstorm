@@ -110,7 +110,7 @@ init([World|[]]) ->
     Str = io_lib:format("~p_sup", [World]),
     WorldSup = list_to_atom(lists:flatten(Str)),
     ss_server_sup:start_link(WorldSup),
-    {ok, #{world=>World, world_sup=>WorldSup}}.
+    {ok, #{world=>ss:world(World), world_sup=>WorldSup}}.
 
 %% reg model process with a uniq name
 handle_call({reg, Name, Mod, [Args]}, _From, #{world:=World, world_sup:=WorldSup}=S0) ->

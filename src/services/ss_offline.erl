@@ -30,7 +30,7 @@ invite_refuse(From, To, S) ->
     dispatch(From, To, invite_refuse, S),
     {ok, S}.
 
-dispatch(From, To, Action, #{world:=World, db:=Db, res:=Res}) ->
+dispatch(From, To, Action, #{world:=W, db:=Db, res:=Res}) ->
     % 保存离线邀请, 收到确认后清除
     Message = [Action, From],
     Item = #{<<"receiver">> =>To, <<"message">> =>Message},
@@ -38,19 +38,19 @@ dispatch(From, To, Action, #{world:=World, db:=Db, res:=Res}) ->
     % 发送邀请消息
     % erlang:display("dispatch from invite first........."),
     % erlang:display(Message),
-    ss_world:send(World, {account, To}, [Action, TrackId, From]).
+    W:send({account, To}, [Action, TrackId, From]).
 
 %% 发送离线消息
 %%
 %% 要求接收方从离线服务删除的消息包括:
 %%   1) invite_from
 %%   2) offline_message
-notify({online, From}, #{world:=World, db:=Db, res:=Res}=S) ->
+notify({online, From}, #{world:=W, db:=Db, res:=Res}=S) ->
     % 收到出席通知
     % erlang:display("notify from offline....."),
     Messages = Db:search(Res, fun(#{<<"receiver">> := R}) ->
         From =:= R
     end, []),
     % erlang:display(Messages),
-    [ss_world:send(World, {account, From}, [Action,TrackId|Msg]) || #{<<"_key">> := TrackId, <<"message">> := [Action|Msg]} <- Messages],
+    [W:send({account, From}, [Action,TrackId|Msg]) || #{<<"_key">> := TrackId, <<"message">> := [Action|Msg]} <- Messages],
     {ok, S}.
