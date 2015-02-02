@@ -175,7 +175,7 @@ invite(To, #{world:=W, db:=Db, id:=Id}=S) ->
         end
     end, S).
 
-%% 收到联系人邀请, 请求连接槽同意
+%% 收到联系人邀请, 请求连接者同意
 invite_from(TrackId, From, S) ->
     force_login(fun() ->
         ss_server:dispatch({invite_from, TrackId, From}, S),
@@ -228,6 +228,10 @@ invite_accept(TrackId, From, #{world:=W, db:=Db, account:= Account, id:=Id}=S) -
             false ->
                 {not_invited, S};
             _ ->
+                % 通知连接者
+                ss_server:dispatch({invite_accept, From}, S),
+                % 清理
+                W:send(?offline, [delete, TrackId]),
                 %erlang:display("invite_confirm ......"),
                 %erlang:display(From),
                 % 更新联系人关系
@@ -240,8 +244,11 @@ invite_accept(TrackId, From, #{world:=W, db:=Db, account:= Account, id:=Id}=S) -
     end, S).
 
 %% 收到接受邀请的确认
-invite_refuse(TrackId, _From, #{world:=W}=S) ->
+invite_refuse(TrackId, From, #{world:=W}=S) ->
     force_login(fun() ->
+        % 通知连接者
+        ss_server:dispatch({invite_accept, From}, S),
+        % 清理
         W:send(?offline, [delete, TrackId]),
         {ok, S}
     end, S).
