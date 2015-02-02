@@ -13,7 +13,7 @@ to_test() ->
     %% resource server: {res, account}
     Db = ss:nosqlite(ss_account_test_data),
     Res = {res, account},
-    W:reg_server(Res, ss_account, [#{db=>Db}]),
+    Accounts = W:reg_server(Res, ss_account, [#{db=>Db}]),
     ?assertEqual(true, is_pid(W:find(Res))),
 
     %% service server: {service, offline}
@@ -25,16 +25,16 @@ to_test() ->
     % erlang:display("------------------------"),
 
     %% clear data
-    ?assertEqual(ok, W:call(Res, drop)),
-    ?assertEqual([], W:call(Res, all)),
+    ?assertEqual(ok, Accounts:call(drop)),
+    ?assertEqual([], Accounts:call(all)),
 
     %% create an account with yifan
-    M1 = W:call(Res, [model, password]),
+    M1 = Accounts:call([model, password]),
     D1 = #{account => "yifan", password => "123456"},
-    {ok, Id1} = W:call(Res, [create, D1, M1]),
+    {ok, Id1} = Accounts:call([create, D1, M1]),
 
     %% account must be uniq
-    ?assertMatch({error, _}, W:call(Res, [create, D1, M1])),
+    ?assertMatch({error, _}, Accounts:call([create, D1, M1])),
 
     %% 出席通知
     %%
@@ -148,16 +148,16 @@ to_test() ->
     Zhuhao = {account, "zhuhao"},
     D9 = #{account => "zhuhao", password => "123456"},
     ?assertMatch({ok, _}, W:call(Res, [create, D9, M1])),
-    W:reg_server(Zhuhao, ss_account, [#{db=>Db}]),
-    W:call(Zhuhao, [connect, self()]),
+    Zhu = W:reg_server(Zhuhao, ss_account, [#{db=>Db}]),
+    Zhu:call([connect, self()]),
     %% xiaoije邀请zhuhao为好友, 然后离线
     ?assertEqual(ok, W:call(Xiaojie, [invite, "zhuhao"])),
     ?assertEqual(ok, W:unreg(Xiaojie)),
     %% zhuhao登录, 收到邀请, 同意, 但此时xiaojie已离线
     clear_msg(),
-    ?assertMatch(ok, W:call(Zhuhao, [login, "zhuhao", "123456"])),
+    ?assertMatch(ok, Zhu:call([login, "zhuhao", "123456"])),
     {invite_from, TrackId9, From9} = got_msg(),
-    ?assertEqual(ok, W:call(Zhuhao, [invite_to_accept, TrackId9, From9])),
+    ?assertEqual(ok, Zhu:call([invite_to_accept, TrackId9, From9])),
     %% xiaojie重新登录, 应仍能正确获得联系人状态
     W:reg_server(Xiaojie, ss_account, [#{db=>Db}]),
     ?assertMatch(ok, W:call(Xiaojie, [login, "xiaojie", "123456"])),

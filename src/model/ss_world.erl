@@ -20,13 +20,8 @@
 
 %% common world api
 -export([start_link/1, start/1, stop/1]).
--export([all/1, info/2, clear/1, destroy/1, find/2, send/3, call/3,
+-export([all/1, info/2, clear/1, destroy/1, find/2, send/3, call/2, call/3,
     reg/3, reg/4, reg_server/3, reg_server/4, unreg/2]).
-
-%% default world api
-% -export([start_link/0, start/0, stop/0]).
-% -export([all/0, info/1, clear/0, destroy/0, find/1, send/2, call/2,
-%     reg/2, reg/3, reg_server/2, reg_server/3, unreg/1]).
 
 %% gen_server callback
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -34,9 +29,6 @@
 -define(SERVER, snowstorm_world).
 
 %% api for manager
-% start() -> start2(?SERVER).
-% stop() -> stop2(?SERVER).
-% start_link() -> start_link2(?SERVER).
 
 start({?MODULE, WN}) -> start(WN);
 start(WorldName) ->
@@ -45,6 +37,8 @@ start(WorldName) ->
 
 stop({?MODULE, WorldName}) -> stop(WorldName);
 stop(WorldName) -> gen_server:cast(WorldName, stop).
+
+start_link({?MODULE, WorldName}) -> start_link(WorldName);
 start_link(WorldName) -> gen_server:start_link({local, WorldName}, ?MODULE, [WorldName], []).
 
 %% @doc you can build some different world in the same application
@@ -73,6 +67,9 @@ info(WN, PN)      -> gen_server:call(WN, {info,  PN}).
 unreg(PN, {?MODULE, WN}) -> unreg(WN, PN);
 unreg(WN, PN)     -> gen_server:call(WN, {unreg, PN}).
 
+call(Action, {?MODULE, {WN, PN}}) when is_atom(Action) -> call(WN, PN, [Action]);
+call(Actions, {?MODULE, {WN, PN}}) when is_list(Actions) -> call(WN, PN, Actions).
+
 call(PN, Req, {?MODULE, WN}) -> call(WN, PN, Req);
 call(WN, PN, Req) -> gen_server:call(WN, {call,  PN, Req}).
 
@@ -91,20 +88,6 @@ destroy(WN)       -> gen_server:call(WN, destroy).
 send(PN, Msg, {?MODULE, WN}) -> send(WN, PN, Msg);
 send(WN, PN, Msg) -> gen_server:cast(WN, {send,  PN, Msg}).
 
-%% api with default name of ss_world
-% reg(PN, Mod)         -> reg2(?SERVER, PN, Mod, []).
-% reg(PN, Mod, Args)   -> reg2(?SERVER, PN, Mod, Args).
-% reg_server(PN, Mod)       -> reg_server2(?SERVER, PN, Mod, []).
-% reg_server(PN, Mod, Args) -> reg_server2(?SERVER, PN, Mod, Args).
-% info(PN)             -> info2(?SERVER, PN).
-% unreg(PN)            -> unreg2(?SERVER, PN).
-% send(PN, Msg)        -> send2(?SERVER, PN, Msg).
-% call(PN, Req)        -> call2(?SERVER, PN, Req).
-% find(PN)             -> find2(?SERVER, PN).
-% all()                -> all2(?SERVER).
-% clear()              -> clear2(?SERVER).
-% destroy()            -> destroy2(?SERVER).
-
 %% start the models supervisor after the world start
 init([World|[]]) ->
     Str = io_lib:format("~p_sup", [World]),
@@ -115,7 +98,9 @@ init([World|[]]) ->
 %% reg model process with a uniq name
 handle_call({reg, Name, Mod, [Args]}, _From, #{world:=World, world_sup:=WorldSup}=S0) ->
     Reply = case ss_server_sup:start_child(WorldSup, Name, Mod, [[World|Args]]) of
-        {ok, Pid} -> Pid;
+        {ok, Pid} when is_pid(Pid) ->
+            {?MODULE, WN} = World,
+            {?MODULE, {WN, Name}};
         {error,{already_started, Pid}} -> Pid;
         Error -> Error
     end,
@@ -187,6 +172,7 @@ handle_cast({send, Name, Msg}, #{world_sup:=WorldSup}=S0) ->
     {noreply, S0};
 handle_cast(stop, S) -> {stop, normal, S}.
 
+%% follow methods not to use
 handle_info(undefined_info, S) -> {noreply, S}.
 terminate(normal, _S) -> ok.
 code_change(undefined_oldVsn, S, _Extra) -> {ok, S}.
