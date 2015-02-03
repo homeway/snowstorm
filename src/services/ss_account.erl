@@ -31,6 +31,14 @@ model(password) -> ss_model:filter([account, password], model(all));
 %%     rel() :: single|double
 model(contacts) -> ss_model:filter([contacts], model(all));
 
+%% message
+model(chat) -> ss_model:confirm_model([
+    {message, #{}},
+    {from, #{}},
+    {to, #{}},
+    {type, #{}}
+]);
+
 model(_) -> [].
 
 %% call who
@@ -198,6 +206,8 @@ invite(To, #{world:=W, db:=Db, id:=Id}=S) ->
                 ok=Db:update(Id, New),
                 % 发送邀请
                 W:send(?offline, [invite, Account, To]),
+                % 保存邀请记录
+                save_invite(invite_to, Account, To, S),
                 {ok, S#{contacts=>Contacts}}
         end
     end, S).
@@ -205,6 +215,8 @@ invite(To, #{world:=W, db:=Db, id:=Id}=S) ->
 %% 收到联系人邀请, 请求连接者同意
 invite_from(TrackId, From, S) ->
     force_login(fun() ->
+        % 保存通知
+        save_invite(invite_from, From, maps:get(account, S), S),
         ss_server:dispatch({invite_from, TrackId, From}, S),
         {ok, S}
     end, S).
@@ -246,8 +258,9 @@ invite_to_refuse(TrackId, From,  #{world:=W, account:= Account}=S) ->
     end, S).
 
 %% 收到接受邀请的确认
-invite_accept(TrackId, From, #{world:=W, db:=Db, account:= Account, id:=Id}=S) ->
+invite_accept(TrackId, From, #{world:=W, db:=Db, id:=Id}=S) ->
     force_login(fun() ->
+        Account = maps:get(account, S),
         W:send(?offline, [delete, TrackId]),
         Data = Db:find(Id),
         Contacts = maps:get(contacts, S, []),
@@ -257,6 +270,8 @@ invite_accept(TrackId, From, #{world:=W, db:=Db, account:= Account, id:=Id}=S) -
             _ ->
                 % 通知连接者
                 ss_server:dispatch({invite_accept, From}, S),
+                % 保存通知
+                save_invite(accept, From, Account, S),
                 % 清理
                 W:send(?offline, [delete, TrackId]),
                 %erlang:display("invite_confirm ......"),
@@ -275,6 +290,8 @@ invite_refuse(TrackId, From, #{world:=W}=S) ->
     force_login(fun() ->
         % 通知连接者
         ss_server:dispatch({invite_accept, From}, S),
+        % 保存通知
+        save_invite(refuse, From, maps:get(account, S), S),
         % 清理
         W:send(?offline, [delete, TrackId]),
         {ok, S}
@@ -298,6 +315,8 @@ chat_to(Content, To, #{world:=W}=S) ->
             false ->
                 W:send(?offline, [chat_to, Content, Account, To])
         end,
+        %% 保存发送记录
+        save_chat(Content, Account, To, S),
         {ok, S}
     end, S).
 
@@ -308,6 +327,8 @@ chat_from(Confirm, Content, From, #{world:=W}=S) ->
         W:send({account, From}, [chat_online_confirm, Confirm]),
         %% 通知连接者
         ss_server:dispatch({chat_from, Content, From}, S),
+        %% 保存接收记录
+        save_chat(Content, From, maps:get(account, S), S),
         {ok, S}
     end, S).
 
@@ -315,13 +336,14 @@ chat_from(Confirm, Content, From, #{world:=W}=S) ->
 chat_offline(TrackId, Content, From, #{world:=W}=S) ->
     force_login(fun() ->
         W:send(?offline, [delete, TrackId]),
-        _Account = maps:get(account, S),
         ss_server:dispatch({chat_offline, Content, From}, S),
+        %% 保存接收记录
+        save_chat(Content, From, maps:get(account, S), S),
         {ok, S}
     end, S).
 
 %% 聊天消息确认
-chat_online_confirm({Pid, Ref}, #{world:=W}=S) ->
+chat_online_confirm({Pid, Ref}, S) ->
     force_login(fun() ->
         erlang:display("chat confirm ...."),
         Pid ! {confirm, Ref},
@@ -335,3 +357,38 @@ list_append(To, Item, List) ->
         false -> [Item|List]
     end.
 
+%% 保存聊天记录
+save_chat(Content, From, To, S) ->
+    save_message(Content, From, To, chat, S).
+
+%% 保存消息历史
+save_message(Content, From, To, Type, S) ->
+    case maps:get(account, S, not_login) of
+        not_login -> not_login;
+        Account ->
+            Res = io_lib:format("~ts_chat", [Account]),
+            Db = ss:nosqlite(Res),
+            Data = #{<<"content">> => Content,
+                     <<"from">> => From,
+                     <<"to">> => To,
+                     <<"type">> => Type},
+            Db:create(Data)
+    end.
+
+%% 保存邀请记录
+save_invite(Type, From, To, S) ->
+    save_notify("invite", From, To, Type, S).
+
+%% 保存通知历史
+save_notify(Content, From, To, Type, S) ->
+    case maps:get(account, S, not_login) of
+        not_login -> not_login;
+        Account ->
+            Res = io_lib:format("~ts_notify", [Account]),
+            Db = ss:nosqlite(Res),
+            Data = #{<<"content">> => Content,
+                     <<"from">> => From,
+                     <<"to">> => To,
+                     <<"type">> => Type},
+            Db:create(Data)
+    end.
