@@ -70,8 +70,12 @@ unreg(WN, PN)     -> gen_server:call(WN, {unreg, PN}).
 call(Action, {?MODULE, {WN, PN}}) when is_atom(Action) -> call(WN, PN, [Action]);
 call(Actions, {?MODULE, {WN, PN}}) when is_list(Actions) -> call(WN, PN, Actions).
 
+%% call handle_call in model process
+%%
+%% not to call ss_world's handle_call, 
+%% but call server process directly
 call(PN, Req, {?MODULE, WN}) -> call(WN, PN, Req);
-call(WN, PN, Req) -> gen_server:call(WN, {call,  PN, Req}).
+call(WN, PN, Req) -> gen_server:call(find(WN, PN), Req).
 
 find(PN, {?MODULE, WN}) -> find(WN, PN);
 find(WN, PN)      -> gen_server:call(WN, {find,  PN}).
@@ -120,14 +124,6 @@ handle_call({find, Name}, _From, #{world_sup:=WorldSup}=S0) ->
     case lists:keyfind(Name, 1, S) of
         false -> {reply, not_reg, S0};
         {Name, Pid, _, _} -> {reply, Pid, S0}
-    end;
-
-%% call handle_call in model process
-handle_call({call, Name, Req}, _From, #{world_sup:=WorldSup}=S0) ->
-    S = supervisor:which_children(WorldSup),
-    case lists:keyfind(Name, 1, S) of
-        false -> {reply, not_reg, S0};
-        {Name, Pid, _, _} -> {reply, gen_server:call(Pid, Req), S0}
     end;
 
 %% list all process in ss_world

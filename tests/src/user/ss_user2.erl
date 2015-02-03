@@ -2,7 +2,7 @@
 -module(ss_user2).
 -behaviour(ss_server).
 -export([init/1, model/1]).
--export([hello/1, status/1, status/2, who/1, login/3, logout/1, notify/2]).
+-export([hello/1, status/1, status/2, who/1, login/3, logout/1, notify/2, known_world/2]).
 
 %% ss_server api
 init(_) -> {ok, #{db=>ss:nosqlite(ss_user2), id=>not_login}}.
@@ -75,3 +75,7 @@ notify(Content, S) ->
     force_login(fun() ->
         Content
     end, S).
+
+%% 从ss_server内部再次访问world调用
+known_world(Server, #{world:=W}=S) ->
+    {W:info(Server), S}.

@@ -31,6 +31,9 @@ to_test() ->
     %% get process info
     ?assertMatch([{current_function,_}|_], W:info(P1)),
 
+    %% call wolrd in ss_server
+    ?assertMatch([{current_function,_}|_], W:call(P1, [known_world, P1])),
+
     %% destroy the world to clean all process
     W:destroy(),
     ?assertEqual([], W:all()),
