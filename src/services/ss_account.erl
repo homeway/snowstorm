@@ -5,7 +5,7 @@
 -export([hello/1, hello/2, status/1, status/2, who/1, notify/2, login/3, logout/1]).
 -export([contacts/1, invite/2, invite_to_accept/3, invite_to_refuse/3,
         invite_from/3, invite_accept/3, invite_refuse/3,
-        chat/3, message/4]).
+        chat_to/3, chat_from/4, chat_online_confirm/2, chat_offline/4]).
 
 -define(offline, {service, offline}).
 
@@ -280,19 +280,51 @@ invite_refuse(TrackId, From, #{world:=W}=S) ->
         {ok, S}
     end, S).
 
-%% 在线聊天消息
-chat(Message, To, #{world:=W}=S) ->
+%% 发送在线聊天消息
+chat_to(Content, To, #{world:=W}=S) ->
     force_login(fun() ->
         Account = maps:get(account, S),
-        W:send({account, To}, [message, chat, Message, Account]),
+        %% 首先判断是否在线
+        case maps:is_key(To, maps:get(living, S, #{})) of
+            true ->
+                %% 要求在3秒内接收确认, 否则转发到离线请求
+                Ref = make_ref(),
+                Pid = spawn(fun() ->
+                    receive {confirm, Ref} -> ok
+                    after 1000 -> W:send(?offline, [chat_to, Content, Account, To]) end
+                end),
+                %% 发送消息
+                W:send({account, To}, [chat_from, {Pid, Ref}, Content, Account]);
+            false ->
+                W:send(?offline, [chat_to, Content, Account, To])
+        end,
         {ok, S}
     end, S).
 
-%% 接收在线消息
-message(chat, Message, From, S) ->
+%% 接收在线聊天消息
+chat_from(Confirm, Content, From, #{world:=W}=S) ->
     force_login(fun() ->
+        %% 发送在线确认
+        W:send({account, From}, [chat_online_confirm, Confirm]),
+        %% 通知连接者
+        ss_server:dispatch({chat_from, Content, From}, S),
+        {ok, S}
+    end, S).
+
+%% 接收离线消息
+chat_offline(TrackId, Content, From, #{world:=W}=S) ->
+    force_login(fun() ->
+        W:send(?offline, [delete, TrackId]),
         _Account = maps:get(account, S),
-        ss_server:dispatch({chat, Message, From}, S),
+        ss_server:dispatch({chat_offline, Content, From}, S),
+        {ok, S}
+    end, S).
+
+%% 聊天消息确认
+chat_online_confirm({Pid, Ref}, #{world:=W}=S) ->
+    force_login(fun() ->
+        erlang:display("chat confirm ...."),
+        Pid ! {confirm, Ref},
         {ok, S}
     end, S).
 

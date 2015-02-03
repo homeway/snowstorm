@@ -179,12 +179,20 @@ account_test() ->
     %% zhuhao发给xiaojie在线消息
     clear_msg(),
     W:call(Xiaojie, [connect, self()]),
-    Zhu:send([chat, "hello", "xiaojie"]),
-    ?assertEqual({chat, "hello", "zhuhao"}, got_msg()),
+    Zhu:send([chat_to, "hello", "xiaojie"]),
+    ?assertEqual({chat_from, "hello", "zhuhao"}, got_msg()),
 
     %% xiaojie下线，zhuhao收到消息
     W:call(Xiaojie, logout),
     ?assertEqual({server, {offline, "xiaojie"}}, got_msg()),
+
+    %% zhuhao发给xiaojie离线消息, 应收不到任何消息
+    Zhu:send([chat_to, "hello", "xiaojie"]),
+    ?assertEqual(nothing, got_msg()),
+
+    %% xiaojie重新上线, 收到zhuhao的消息
+    ?assertMatch(ok, W:call(Xiaojie, [login, "xiaojie", "123456"])),
+    ?assertEqual(ok, receive {chat_offline, "hello", "zhuhao"} -> ok after 50 -> nothing end),
 
     finish(W, Res).
 
