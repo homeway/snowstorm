@@ -194,6 +194,8 @@ account_test() ->
     ?assertMatch(ok, W:call(Xiaojie, [login, "xiaojie", "123456"])),
     ?assertEqual(ok, receive {chat_offline, "hello", "zhuhao"} -> ok after 50 -> nothing end),
 
+    erlang:display("history ....."),
+    erlang:display(Zhu:call(chat_history)),
     finish(W, Res).
 
 %% 如果没有任何消息就停顿100毫秒再确定消息已清除

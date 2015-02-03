@@ -5,7 +5,7 @@
 -export([hello/1, hello/2, status/1, status/2, who/1, notify/2, login/3, logout/1]).
 -export([contacts/1, invite/2, invite_to_accept/3, invite_to_refuse/3,
         invite_from/3, invite_accept/3, invite_refuse/3,
-        chat_to/3, chat_from/4, chat_online_confirm/2, chat_offline/4]).
+        chat_to/3, chat_from/4, chat_online_confirm/2, chat_offline/4, chat_history/1, notify_history/1]).
 
 -define(offline, {service, offline}).
 
@@ -350,6 +350,20 @@ chat_online_confirm({Pid, Ref}, S) ->
         {ok, S}
     end, S).
 
+%% 查看聊天记录
+chat_history(S) ->
+    force_login(fun() ->
+        Db = chat_db(S),
+        {Db:all(), S}
+    end, S).
+
+%% 查看通知记录
+notify_history(S) ->
+    force_login(fun() ->
+        Db = notify_db(S),
+        {Db:all(), S}
+    end, S).
+
 %% (避免重复)添加元素到列表
 list_append(To, Item, List) ->
     case lists:keymember(To, 1, List) of
@@ -357,23 +371,40 @@ list_append(To, Item, List) ->
         false -> [Item|List]
     end.
 
+%% 
+chat_db(S) ->
+    Res = io_lib:format("~ts_chat", [maps:get(account, S)]),
+    ss:nosqlite(Res).
+
 %% 保存聊天记录
 save_chat(Content, From, To, S) ->
     save_message(Content, From, To, chat, S).
 
 %% 保存消息历史
 save_message(Content, From, To, Type, S) ->
-    case maps:get(account, S, not_login) of
-        not_login -> not_login;
-        Account ->
-            Res = io_lib:format("~ts_chat", [Account]),
-            Db = ss:nosqlite(Res),
-            Data = #{<<"content">> => Content,
-                     <<"from">> => From,
-                     <<"to">> => To,
-                     <<"type">> => Type},
-            Db:create(Data)
-    end.
+    force_login(fun() ->
+        Own = maps:get(account, S),
+        Item = #{<<"content">> => Content,
+                 <<"from">> => From,
+                 <<"to">> => To,
+                 <<"type">> => Type},
+        case Own =:= From of
+            true -> Key = To;
+            _ -> Key = From
+        end,
+        Db = chat_db(S),
+        case Db:find(Key) of
+            notfound ->
+                Db:create(Key, #{<<"items">> => [Item]});
+            #{<<"items">> := Items} ->
+                Db:update(Key, #{<<"items">> => [Item|Items]})
+        end
+    end, S).
+
+%% 
+notify_db(S) ->
+    Res = io_lib:format("~ts_notify", [maps:get(account, S)]),
+    ss:nosqlite(Res).
 
 %% 保存邀请记录
 save_invite(Type, From, To, S) ->
@@ -381,14 +412,11 @@ save_invite(Type, From, To, S) ->
 
 %% 保存通知历史
 save_notify(Content, From, To, Type, S) ->
-    case maps:get(account, S, not_login) of
-        not_login -> not_login;
-        Account ->
-            Res = io_lib:format("~ts_notify", [Account]),
-            Db = ss:nosqlite(Res),
-            Data = #{<<"content">> => Content,
-                     <<"from">> => From,
-                     <<"to">> => To,
-                     <<"type">> => Type},
-            Db:create(Data)
-    end.
+    force_login(fun() ->
+        Db = notify_db(S),
+        Data = #{<<"content">> => Content,
+                 <<"from">> => From,
+                 <<"to">> => To,
+                 <<"type">> => Type},
+        Db:create(Data)
+    end, S).
