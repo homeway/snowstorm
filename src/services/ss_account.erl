@@ -71,7 +71,18 @@ login(UserName, Pass, #{account:=not_login, id:=not_login}=S) ->
         {error, Reason} -> {{error, Reason}, S}
     end;
 login(_Id, _Pass, S) -> {already_login, S}.
-logout(S) -> {ok, S#{account=>not_login, id=>not_login}}.
+logout(#{world:=W}=S) ->
+    force_login(fun() ->
+        % 广播出席通知
+        MyAccount = maps:get(account, S),
+        Contacts = maps:get(contacts, S, []),
+        Subs = [{account, Account} || {Account, _} <- Contacts],
+        %erlang:display("login ...."),
+        %erlang:display(Subs),
+        [W:send(Sub, [notify, {offline, MyAccount}]) || Sub <- Subs], 
+
+        {ok, S#{account=>not_login, id=>not_login}}
+    end, S).
 
 check_password(Db, Account, Pass) ->
     Data = Db:find(account, Account),
@@ -122,6 +133,21 @@ notify({online, From}, #{world:=W}=S) ->
                 % 仅加入到living状态
                 Living = maps:get(living, S, []), 
                 {ok, S#{living=>maps:put(From, "online", Living)}};
+            _ ->
+                {single_contact, S}
+        end
+    end, S);
+notify({offline, From}, S) ->
+    % 收到出席通知
+    force_login(fun() ->
+        Contacts = maps:get(contacts, S, []),
+        case lists:keymember(From, 1, Contacts) of
+            true ->
+                % 分发给连接者
+                ss_server:dispatch({offline, From}, S),
+                % 从living中剔除
+                Living = maps:get(living, S, []), 
+                {ok, S#{living=>maps:remove(From, Living)}};
             _ ->
                 {single_contact, S}
         end

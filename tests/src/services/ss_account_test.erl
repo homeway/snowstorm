@@ -3,7 +3,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -define(offline, {service, offline}).
 
-account_test() ->
+prepare() ->
     %% 启动world
     W = ss:world(to_test_ss_account),
     W:start(),
@@ -14,6 +14,17 @@ account_test() ->
     Db = ss:nosqlite(ss_account_test_data),
     Res = {res, account},
     Accounts = W:reg_server(Res, ss_account, [#{db=>Db}]),
+
+    {W, Accounts, Res, Db}.
+
+finish(W, Res) ->
+    %% stop the world
+    ?assertEqual(ok, W:call(Res, drop)),
+    ?assertEqual(ok, W:call(?offline, drop)),
+    W:stop().
+
+account_test() ->
+    {W, Accounts, Res, Db} = prepare(),
     ?assertEqual(true, is_pid(W:find(Res))),
 
     %% service server: {service, offline}
@@ -169,21 +180,21 @@ account_test() ->
     clear_msg(),
     W:call(Xiaojie, [connect, self()]),
     Zhu:send([chat, "hello", "xiaojie"]),
-    Msg = got_msg(),
-    ?assertEqual({chat, "hello", "zhuhao"}, Msg),
+    ?assertEqual({chat, "hello", "zhuhao"}, got_msg()),
 
-    %% stop the world
-    ?assertEqual(ok, W:call(Res, drop)),
-    ?assertEqual(ok, W:call(?offline, drop)),
-    W:stop().
+    %% xiaojie下线，zhuhao收到消息
+    W:call(Xiaojie, logout),
+    ?assertEqual({server, {offline, "xiaojie"}}, got_msg()),
+
+    finish(W, Res).
 
 %% 如果没有任何消息就停顿100毫秒再确定消息已清除
 clear_msg() ->
     receive _ -> clear_msg()
-    after 100 -> ok
+    after 50 -> ok
     end.
 
 got_msg() ->
     receive Msg -> Msg
-    after 200 -> nothing
+    after 50 -> nothing
     end.
