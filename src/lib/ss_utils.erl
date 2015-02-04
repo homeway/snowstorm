@@ -2,52 +2,42 @@
 -module(ss_utils).
 
 %% API
--export([print/1]).
+-export([to_string/1]).
 -export([confirm_sync/2]).
 
-%% print model pretty
-% #{
-%   nosqlite => [table, user],
-%   index => [
-%     {"type", #{to_display => true,to_query => true,type => text,value => <<"common">>}},
-%     {"account", #{id => account,to_display => true,to_query => true,type => text}},
-%     {"tel", #{to_display => true,to_query => true,type => text}},
-%     {name, #{to_display => true,to_query => true,type => text}},
-%     {"nickname", #{id => account,to_display => true,to_query => true,type => text}},
-%     {"备注", #{to_display => true,to_query => true,type => text}}
-%   ]}
-print(Term) when is_map(Term) -> io:format(print_map(Term));
-print(Term) when is_list(Term) -> io:format(lists:flatten("[\n\r" ++ print_item(Term, "  ") ++ "]\n\r")).
+%% to replace erlang:display/1
+to_string(L) -> lists:flatten(to_string(L, "")).
 
-%% face和handlers
-print_map(M) when is_map(M) ->
-    S1 = "#{\n\r",
-    L = maps:to_list(M),
-    Items = lists:map(fun({K, V}) ->
-        lists:flatten(io_lib:format("  ~ts => ", [print_key(K)]) ++ print_item(V, " "))
-    end, L),
-    S2 = string:join(Items, ",\n\r"),
-    S1 ++ lists:flatten(S2) ++ "}\n\r".
+to_string(L, Acc0) when is_list(L) ->
+    IsString = lists:all(fun(I) -> is_integer(I) end, L),
+    case IsString of
+        true ->
+            Acc0 ++ "\"" ++ L ++ "\"";
+        false ->
+            L2 = lists:map(fun(I) ->
+                to_string(I)
+            end, L),
+            Acc0 ++ "[" ++ string:join(L2, ", ") ++ "]"
+    end;
 
-%% 属性列表
-print_item(L, LevelString) when is_list(L) ->
-    Items = lists:map(fun({K, V}) ->
-        LevelString ++ io_lib:format("{~ts, ~p}", [print_key(K), V])
-    end, L),
-    string:join(Items, ",\n\r") ++ "\n\r";
-print_item(Term, LevelString) ->
-    LevelString ++ io_lib:format("~p", [Term]).
+to_string(M, Acc0) when is_map(M) ->
+    L2 = lists:map(fun({K, V}) ->
+        to_string(K) ++ " => " ++ to_string(V)
+    end, maps:to_list(M)),
+    Acc0 ++ "#{" ++ string:join(L2, ", ") ++ "}";
 
-%% Key名称转换
-print_key(S) when is_list(S) ->
-    Bs = unicode:characters_to_binary(S),
-    <<"\"", Bs/binary, "\"">>;
-print_key(B) when is_binary(B) ->
-    <<"<<\"", B/binary, "\">>">>;
-print_key(A) when is_atom(A) ->
-    atom_to_binary(A, latin1);
-print_key(Term) -> Term.
+to_string(T, Acc0) when is_tuple(T) ->
+    L2 = [to_string(I) || I <- tuple_to_list(T)],
+    Acc0 ++ "{" ++ string:join(L2, ", ") ++ "}";
 
+to_string(B, Acc0) when is_binary(B) ->
+    Acc0 ++ io_lib:format("<<\"~ts\">>", [B]);
+
+to_string(I, Acc0) when is_integer(I) ->
+    Acc0 ++ io_lib:format("~B", [I]);
+
+to_string(Term, Acc0) ->
+    Acc0 ++ io_lib:format("~p", [Term]).
 
 %% 用来同步索引的更新
 %% 每200毫秒查询一下是否同步
