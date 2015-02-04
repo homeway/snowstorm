@@ -193,15 +193,12 @@ account_test() ->
     Zhu:send([chat_to, "hello, you not there", "xiaojie"]),
     ?assertEqual(nothing, got_msg()),
 
-    io:format("hello.....\n\n\r"),
-
     %% xiaojie重新上线, 收到zhuhao的消息
     ?assertMatch(ok, W:call(Xiaojie, [login, "xiaojie", "123456"])),
     ?assertEqual(ok, receive {chat_offline, "hello, you not there", "zhuhao"} -> ok after 50 -> nothing end),
+    ss:display(Zhu:call(notify_history)),
+    ss:display(Zhu:call(chat_history)),
 
-    print(notify_history, Zhu:call(notify_history)),
-    print(chat_history, Zhu:call(chat_history)),
-    % [ss:print(I) || I <- Zhu:call(chat_history)],
     finish(W).
 
 %% 如果没有任何消息就停顿100毫秒再确定消息已清除
@@ -214,14 +211,3 @@ got_msg() ->
     receive Msg -> Msg
     after 50 -> nothing
     end.
-
-print(notify_history, L) ->
-    erlang:display("notify history ....."),
-    [erlang:display(I) || I <- L];
-print(chat_history, L1) ->
-    erlang:display("chat history ....."),
-    lists:foreach(fun(#{<<"_key">> := K, <<"items">> := L2}) ->
-        erlang:display("chat with >> "),
-        erlang:display(binary_to_list(K)),
-        [erlang:display(I) || I <- L2]
-    end, L1).
