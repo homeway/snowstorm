@@ -387,7 +387,8 @@ save_message(Content, From, To, Type, S) ->
         Item = #{<<"content">> => Content,
                  <<"from">> => From,
                  <<"to">> => To,
-                 <<"type">> => Type},
+                 <<"type">> => Type,
+                 <<"received_at">> => ss_time:now_to_iso()},
         case Own =:= From of
             true -> Key = To;
             _ -> Key = From
@@ -417,6 +418,7 @@ save_notify(Content, From, To, Type, S) ->
         Data = #{<<"content">> => Content,
                  <<"from">> => From,
                  <<"to">> => To,
-                 <<"type">> => Type},
+                 <<"type">> => Type,
+                 <<"received_at">> => ss_time:now_to_iso()},
         Db:create(Data)
     end, S).

@@ -4,6 +4,9 @@
 -define(offline, {service, offline}).
 
 prepare() ->
+    %% 清理测试数据
+    [file:delete(F) || F <- filelib:wildcard("../tests/data/*.nosqlite")],
+
     %% 启动world
     W = ss:world(to_test_ss_account),
     W:start(),
@@ -17,10 +20,10 @@ prepare() ->
 
     {W, Accounts, Res, Db}.
 
-finish(W, Res) ->
+finish(W) ->
     %% stop the world
-    ?assertEqual(ok, W:call(Res, drop)),
-    ?assertEqual(ok, W:call(?offline, drop)),
+    %?assertEqual(ok, W:call(Res, drop)),
+    %?assertEqual(ok, W:call(?offline, drop)),
     W:stop().
 
 account_test() ->
@@ -30,13 +33,13 @@ account_test() ->
     %% service server: {service, offline}
     W:reg_server(?offline, ss_offline, [#{db=>ss:nosqlite(ss_account_test_offline)}]),
     ?assertEqual(true, is_pid(W:find(?offline))),
-    ?assertEqual(ok, W:call(?offline, drop)),
+    %?assertEqual(ok, W:call(?offline, drop)),
     % erlang:display("world info >>>>>>>>>"),
     % erlang:display(ss_world:all2(?world)),
     % erlang:display("------------------------"),
 
     %% clear data
-    ?assertEqual(ok, Accounts:call(drop)),
+    %?assertEqual(ok, Accounts:call(drop)),
     ?assertEqual([], Accounts:call(all)),
 
     %% create an account with yifan
@@ -187,16 +190,19 @@ account_test() ->
     ?assertEqual({server, {offline, "xiaojie"}}, got_msg()),
 
     %% zhuhao发给xiaojie离线消息, 应收不到任何消息
-    Zhu:send([chat_to, "hello", "xiaojie"]),
+    Zhu:send([chat_to, "hello, you not there", "xiaojie"]),
     ?assertEqual(nothing, got_msg()),
+
+    io:format("hello.....\n\n\r"),
 
     %% xiaojie重新上线, 收到zhuhao的消息
     ?assertMatch(ok, W:call(Xiaojie, [login, "xiaojie", "123456"])),
-    ?assertEqual(ok, receive {chat_offline, "hello", "zhuhao"} -> ok after 50 -> nothing end),
+    ?assertEqual(ok, receive {chat_offline, "hello, you not there", "zhuhao"} -> ok after 50 -> nothing end),
 
-    erlang:display("history ....."),
-    erlang:display(Zhu:call(chat_history)),
-    finish(W, Res).
+    print(notify_history, Zhu:call(notify_history)),
+    print(chat_history, Zhu:call(chat_history)),
+    % [ss:print(I) || I <- Zhu:call(chat_history)],
+    finish(W).
 
 %% 如果没有任何消息就停顿100毫秒再确定消息已清除
 clear_msg() ->
@@ -208,3 +214,14 @@ got_msg() ->
     receive Msg -> Msg
     after 50 -> nothing
     end.
+
+print(notify_history, L) ->
+    erlang:display("notify history ....."),
+    [erlang:display(I) || I <- L];
+print(chat_history, L1) ->
+    erlang:display("chat history ....."),
+    lists:foreach(fun(#{<<"_key">> := K, <<"items">> := L2}) ->
+        erlang:display("chat with >> "),
+        erlang:display(binary_to_list(K)),
+        [erlang:display(I) || I <- L2]
+    end, L1).
