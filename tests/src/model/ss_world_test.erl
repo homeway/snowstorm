@@ -10,7 +10,7 @@ to_test() ->
     W:destroy(),
     ?assertEqual([], W:all()),
 
-    %% regss ss_user1
+    %% 注册一个ss_server
     P1 = test_user1,
     P2 = test_user2,
     W:reg_server(P1, ss_user2),
@@ -32,7 +32,7 @@ to_test() ->
     ?assertMatch([{current_function,_}|_], W:info(P1)),
 
     %% call wolrd in ss_server
-    ?assertMatch([{current_function,_}|_], W:call(P1, [known_world, P1])),
+    ?assertMatch([{current_function,_}|_], W:call(P1, known_world, [P1])),
 
     %% destroy the world to clean all process
     W:destroy(),

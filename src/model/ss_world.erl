@@ -20,7 +20,7 @@
 
 %% common world api
 -export([start_link/1, start/1, stop/1]).
--export([all/1, info/2, clear/1, destroy/1, find/2, send/2, send/3, call/2, call/3,
+-export([all/1, info/2, clear/1, destroy/1, find/2, send/2, send/3, call/2, call/3, call/4,
     reg/3, reg/4, reg_server/3, reg_server/4, unreg/2]).
 
 %% gen_server callback
@@ -47,6 +47,10 @@ start_link(WorldName) -> gen_server:start_link({local, WorldName}, ?MODULE, [Wor
 %% PN is ProcessName
 %% Mod is Module
 %%
+
+%% 注册普通进程到ss_world
+%% World:reg(ProcessName, Module).
+%% World:reg(ProcessName, Module, Args).
 reg(PN, Mod, {?MODULE, WN}) -> reg(WN, PN, Mod);
 reg(WN, PN, Mod) -> reg(WN, PN, Mod, []).
 
@@ -54,6 +58,9 @@ reg(PN, Mod, Args, {?MODULE, WN}) -> reg(WN, PN, Mod, Args);
 reg(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
     gen_server:call(WN, {reg, PN, Mod, Args}).
 
+%% 注册ss_server类型的进程到ss_world
+%% World:reg_server(ProcessName, Module).
+%% World:reg_server(ProcessName, Module, Args).
 reg_server(PN, Mod, {?MODULE, WN}) -> reg_server(WN, PN, Mod);
 reg_server(WN, PN, Mod) -> reg_server(WN, PN, Mod, []).
 
@@ -61,34 +68,54 @@ reg_server(PN, Mod, Args, {?MODULE, WN}) -> reg_server(WN, PN, Mod, Args);
 reg_server(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
     gen_server:call(WN, {reg, PN, ss_server, [[Mod|Args]]}).
 
+%% World:info(ProcessName).
 info(PN, {?MODULE, WN}) -> info(WN, PN);
 info(WN, PN)      -> gen_server:call(WN, {info,  PN}).
 
+%% World:unreg(ProcessName).
 unreg(PN, {?MODULE, WN}) -> unreg(WN, PN);
 unreg(WN, PN)     -> gen_server:call(WN, {unreg, PN}).
 
-call(Action, {?MODULE, {WN, PN}}) when is_atom(Action) -> call(WN, PN, [Action]);
-call(Actions, {?MODULE, {WN, PN}}) when is_list(Actions) -> call(WN, PN, Actions).
+%% Process:call(Action).
+%% Process:call([Action|Args]).
+call(Action, {?MODULE, {WN, PN}}) when is_atom(Action) -> call(WN, PN, Action, []).
+%% call([Action|Args], {?MODULE, {WN, PN}}) -> call(WN, PN, Action, Args).
+call(Action, [Arg|Args], {?MODULE, {WN, PN}}) -> call(WN, PN, Action, [Arg|Args]);
+call(Action, Arg, {?MODULE, {WN, PN}}) -> call(WN, PN, Action, Arg).
 
 %% call handle_call in model process
 %%
-%% not to call ss_world's handle_call, 
-%% but call server process directly
-call(PN, Req, {?MODULE, WN}) -> call(WN, PN, Req);
-call(WN, PN, Req) -> gen_server:call(find(WN, PN), Req).
+%% 查找process的注册PID，然后直接使用gen_server:call/2调用
+%% 应避免引发死循环的情况:
+%%     在gen_server:call/2的回调函数中再次调用gen_server:call/2的回调函数
+%%
+call(PN, Action, [Arg|Args], {?MODULE, WN}) -> call(WN, PN, Action, [Arg|Args]);
+call(PN, Action, Arg, {?MODULE, WN}) -> call(WN, PN, Action, [Arg]);
+call(WN, PN, Action, Args) -> gen_server:call(find(WN, PN), [Action|Args]).
 
+%% 查找注册进程的PID
+%% @todo 将来升级到分布式环境中使用mnesia保存注册进程的PID
 find(PN, {?MODULE, WN}) -> find(WN, PN);
 find(WN, PN)      -> gen_server:call(WN, {find,  PN}).
 
+%% 返回所有注册进程
+%% World:all().
 all({?MODULE, WN}) -> all(WN);
 all(WN)           -> gen_server:call(WN, all).
 
+%% 清理所有僵尸进程
+%% World:clear().
 clear({?MODULE, WN}) -> clear(WN);
 clear(WN)         -> gen_server:call(WN, clear).
 
+%% 破坏ss_world中的所有进程
+%% World:destroy().
 destroy({?MODULE, WN}) -> destroy(WN);
 destroy(WN)       -> gen_server:call(WN, destroy).
 
+%% 转发消息给ss_world注册进程
+%% Process:send(Message).
+%% World:send(ProcessName, Message).
 send(Msg, {?MODULE, {WN, PN}}) -> send(WN, PN, Msg).
 
 send(PN, Msg, {?MODULE, WN}) -> send(WN, PN, Msg);
