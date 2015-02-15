@@ -27,15 +27,15 @@ to_test() ->
     ?assertEqual([], Users:call(all)),
 
     %% create
-    M1 = Users:call(model, [password]),
+    M1 = Users:call(model, password),
     D1 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "123456"},
     ?assertMatch([{<<"账户名"/utf8>>, _}, {<<"密码"/utf8>>, _}], M1),
-    {ok, Id1} = Users:call(create, [D1, M1]),
+    {ok, Id1} = Users:call(create, [D1, password]),
     ?assertEqual(true, is_binary(Id1)),
 
     %% create with invalidte min length
     D2 = #{<<"账户名"/utf8>> => "yifan", <<"密码"/utf8>> => "1234"},
-    {error, M2} = Users:call(create, [D2, M1]),
+    {error, M2} = Users:call(create, [D2, password]),
     ?assertMatch([{<<"账户名"/utf8>>, #{}}, {<<"密码"/utf8>>, #{}}], M2),
     {error, _} = Users:call(create, [D2, password]),
     ?assertMatch([{<<"账户名"/utf8>>, #{}}, {<<"密码"/utf8>>, #{}}], M2),

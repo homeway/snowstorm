@@ -3,8 +3,7 @@
 -behaviour(gen_server).
 -export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([info/1, model/2, connect/2, connect/3]).
--export([create/3, update/4, delete/2, find/2, all/1, drop/1]).
+-export([info/1, model/2, connect/2, connect/3, validate/4]).
 -export([dispatch/2]).
 
 %% ss_server behaviour define ---------------------------------------
@@ -80,23 +79,6 @@ connect(Pid, TempFun, S) when is_pid(Pid) and is_function(TempFun, 1) ->
 dispatch(Msg, S) ->
     Slots = maps:get(slots, S, []),
     [Pid ! Fun(Msg) || {Pid, Fun} <- Slots].
-
-%% db action ------------------------------------------------------
-%% Data is a db map #{Key=>Value}
-create(Data, M0, #{db:=D}=S) ->
-    validate(Data, M0, S, fun() ->
-        D:create(Data)
-    end).
-
-update(K, Data, M0, #{db:=D}=S) ->
-    validate(Data, M0, S, fun() ->
-        D:update(K, Data)
-    end).
-
-delete(K, #{db:=D}=S) -> {D:delete(K), S}.
-find  (K, #{db:=D}=S) -> {D:find(K), S}.
-all      (#{db:=D}=S) -> {D:all(), S}.
-drop     (#{db:=D}=S) -> {D:drop(), S}.
 
 %% private ------------------------------------------------------------
 %%

@@ -2,6 +2,7 @@
 -module(ss_user2).
 -behaviour(ss_server).
 -export([init/1, model/1]).
+-export([create/2, create/3, update/3, update/4, delete/2, find/2, all/1, drop/1]).
 -export([hello/1, status/1, status/2, who/1, login/3, logout/1, notify/2, known_world/2]).
 
 %% ss_server api
@@ -20,9 +21,30 @@ model(all) -> ss_model:confirm_model([
     {"生日", #{type=>date}},
     {"联系人", #{type=>tags}}
 ]);
+model(create) -> model(all);
+model(update) -> model(all);
 model(show) -> ss_model:drop(["密码"], model(all));
 model(password) -> ss_model:filter(["账户名", "密码"], model(all));
 model(_) -> [].
+
+%% db action ------------------------------------------------------
+create(Data, S) -> create(Data, create, S).
+create(Data, Model, #{db:=D}=S) ->
+    ss_server:validate(Data, Model, S, fun() ->
+        D:create(Data)
+    end).
+update(K, Data, S) -> update(K, Data, update, S).
+update(K, Data, Model, #{db:=D}=S) ->
+    ss_server:validate(Data, Model, S, fun() ->
+        D:update(K, Data)
+    end).
+delete(K, #{db:=D}=S) -> {D:delete(K), S}.
+find  (K, #{db:=D}=S) -> {D:find(K), S}.
+all      (#{db:=D}=S) -> {D:all(), S}.
+drop     (#{db:=D}=S) -> {D:drop(), S}.
+
+%% other ----------------------------------------------------------
+%%
 
 %% helper info
 who(#{id:=Id}=S) -> {Id, S}.
