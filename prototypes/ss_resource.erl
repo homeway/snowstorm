@@ -2,7 +2,7 @@
 -module([[[ResourceName]]]).
 -behaviour(ss_server).
 -export([init/1, model/1]).
--export([create/2, update/3, delete/2, find/2, all/1, drop/1]).
+-export([create/2, create/3, update/3, update/4, delete/2, find/2, all/1, drop/1]).
 
 %% ss_server api
 init([]) ->
@@ -18,12 +18,14 @@ model(update) -> model(all);
 model(_) -> [].
 
 %% db action ------------------------------------------------------
-create(Data, #{db:=D}=S) ->
-    ss_server:validate(Data, create, S, fun() ->
+create(Data, S) -> create(Data, create, S).
+create(Data, Model, #{db:=D}=S) ->
+    ss_server:validate(Data, Model, S, fun() ->
         D:create(Data)
     end).
-update(K, Data, #{db:=D}=S) ->
-    ss_server:validate(Data, update, S, fun() ->
+update(K, Data, S) -> update(K, Data, update, S).
+update(K, Data, Model, #{db:=D}=S) ->
+    ss_server:validate(Data, Model, S, fun() ->
         D:update(K, Data)
     end).
 delete(K, #{db:=D}=S) -> {D:delete(K), S}.
