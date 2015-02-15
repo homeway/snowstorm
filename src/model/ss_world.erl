@@ -20,7 +20,7 @@
 
 %% common world api
 -export([start_link/1, start/1, stop/1]).
--export([all/1, info/2, clear/1, destroy/1, find/2, send/2, send/3, call/2, call/3, call/4,
+-export([all/1, info/2, clear/1, destroy/1, find/2, cast/3, cast/4, call/2, call/3, call/4,
     reg/3, reg/4, reg_server/3, reg_server/4, unreg/2]).
 
 %% gen_server callback
@@ -81,7 +81,8 @@ unreg(WN, PN)     -> gen_server:call(WN, {unreg, PN}).
 call(Action, {?MODULE, {WN, PN}}) when is_atom(Action) -> call(WN, PN, Action, []).
 %% call([Action|Args], {?MODULE, {WN, PN}}) -> call(WN, PN, Action, Args).
 call(Action, [Arg|Args], {?MODULE, {WN, PN}}) -> call(WN, PN, Action, [Arg|Args]);
-call(Action, Arg, {?MODULE, {WN, PN}}) -> call(WN, PN, Action, [Arg]).
+call(Action, [], {?MODULE, {WN, PN}}) -> call(WN, PN, Action, []);
+call(Action, Arg, {?MODULE, {WN, PN}}) -> call(WN, PN, Action, [Arg]);
 
 %% call handle_call in model process
 %%
@@ -89,9 +90,12 @@ call(Action, Arg, {?MODULE, {WN, PN}}) -> call(WN, PN, Action, [Arg]).
 %% 应避免引发死循环的情况:
 %%     在gen_server:call/2的回调函数中再次调用gen_server:call/2的回调函数
 %%
+call(PN, Action, {?MODULE, WN}) -> call(WN, PN, Action, []).
+
 call(PN, Action, [Arg|Args], {?MODULE, WN}) -> call(WN, PN, Action, [Arg|Args]);
+call(PN, Action, [], {?MODULE, WN}) -> call(WN, PN, Action, []);
 call(PN, Action, Arg, {?MODULE, WN}) -> call(WN, PN, Action, [Arg]);
-call(WN, PN, Action, Args) -> gen_server:call(find(WN, PN), [Action|Args]).
+call(WN, PN, Action, Args) -> gen_server:call(find(WN, PN), {Action, Args}).
 
 %% 查找注册进程的PID
 %% @todo 将来升级到分布式环境中使用mnesia保存注册进程的PID
@@ -114,12 +118,15 @@ destroy({?MODULE, WN}) -> destroy(WN);
 destroy(WN)       -> gen_server:call(WN, destroy).
 
 %% 转发消息给ss_world注册进程
-%% Process:send(Message).
-%% World:send(ProcessName, Message).
-send(Msg, {?MODULE, {WN, PN}}) -> send(WN, PN, Msg).
+%% Process:cast(Action, Message).
+%% World:cast(ProcessName, Action, Message).
+cast(Action, [Msg|Msgs], {?MODULE, {WN, PN}}) -> cast(WN, PN, Action, [Msg|Msgs]);
+cast(Action, Msg, {?MODULE, {WN, PN}}) -> cast(WN, PN, Action, [Msg]).
 
-send(PN, Msg, {?MODULE, WN}) -> send(WN, PN, Msg);
-send(WN, PN, Msg) -> gen_server:cast(WN, {send,  PN, Msg}).
+cast(PN, Action, [Msg|Msgs], {?MODULE, WN}) -> cast(WN, PN, Action, [Msg|Msgs]);
+cast(PN, Action, Msg, {?MODULE, WN}) -> cast(WN, PN, Action, [Msg]);
+cast(WN, PN, Action, [Msg|Msgs]) -> gen_server:cast(WN, {cast,  PN, Action, [Msg|Msgs]});
+cast(WN, PN, Action, Msg) -> gen_server:cast(WN, {cast,  PN, Action, [Msg]}).
 
 %% start the models supervisor after the world start
 init([World|[]]) ->
@@ -188,10 +195,10 @@ handle_call(_, _, S) ->
     {reply, {error, not_support}, S}.
 
 %% cast message to process
-handle_cast({send, Name, Msg}, #{world_sup:=WorldSup}=S0) ->
+handle_cast({cast, PN, Action, Msg}, #{world_sup:=WorldSup}=S0) ->
     S = supervisor:which_children(WorldSup),
-    case lists:keyfind(Name, 1, S) of
-        {Name, Pid, _, _} -> gen_server:cast(Pid, Msg);
+    case lists:keyfind(PN, 1, S) of
+        {PN, Pid, _, _} -> gen_server:cast(Pid, {Action, Msg});
         _ -> not_cast
     end,
     {noreply, S0};

@@ -38,7 +38,7 @@ do(From, To, Action, #{world:=W, db:=Db}) ->
     % 发送邀请消息
     % erlang:display("do from invite first........."),
     % erlang:display(Message),
-    W:send({account, To}, [Action, TrackId, From]).
+    W:cast({account, To}, Action, [TrackId, From]).
 
 %% 离线消息
 chat_to(Content, From, To, #{world:=W, db:=Db}=S) ->
@@ -46,7 +46,7 @@ chat_to(Content, From, To, #{world:=W, db:=Db}=S) ->
     Message = [chat_offline, Content, From],
     Item = #{<<"receiver">> =>To, <<"message">> =>Message},
     {ok, TrackId}=Db:create(Item),
-    W:send({account, To}, [chat_offline, Content, TrackId, From]),
+    W:cast({account, To}, chat_offline, [Content, TrackId, From]),
     {ok, S}.
 
 %% 转发离线通知
@@ -61,5 +61,5 @@ notify({online, From}, #{world:=W, db:=Db}=S) ->
         From =:= R
     end, []),
     % erlang:display(Messages),
-    [W:send({account, From}, [Action,TrackId|Msg]) || #{<<"_key">> := TrackId, <<"message">> := [Action|Msg]} <- Messages],
+    [W:cast({account, From}, Action, [TrackId|Msg]) || #{<<"_key">> := TrackId, <<"message">> := [Action|Msg]} <- Messages],
     {ok, S}.

@@ -73,7 +73,7 @@ login(UserName, Pass, #{account:=not_login, id:=not_login}=S) ->
             Subs = [?offline|[{account, Account} || {Account, _} <- Contacts]],
             %erlang:display("login ...."),
             %erlang:display(Subs),
-            [W:send(Sub, [notify, {online, UserName}]) || Sub <- Subs], 
+            [W:cast(Sub, notify, {online, UserName}) || Sub <- Subs], 
             % 初始化联系人列表, 活跃map为空
             {ok, S#{id=>ss_model:value('_key', Data), account=>UserName, contacts=>Contacts, living=>#{}}};
         {error, Reason} -> {{error, Reason}, S}
@@ -87,7 +87,7 @@ logout(#{world:=W}=S) ->
         Subs = [{account, Account} || {Account, _} <- Contacts],
         %erlang:display("login ...."),
         %erlang:display(Subs),
-        [W:send(Sub, [notify, {offline, MyAccount}]) || Sub <- Subs], 
+        [W:cast(Sub, notify, {offline, MyAccount}) || Sub <- Subs], 
 
         {ok, S#{account=>not_login, id=>not_login}}
     end, S).
@@ -135,7 +135,7 @@ notify({online, From}, #{world:=W}=S) ->
         case lists:keymember(From, 1, Contacts) of
             true ->
                 % 发送出席回执
-                W:send({account, From}, [notify, {confirm, online, Account}]),
+                W:cast({account, From}, notify, {confirm, online, Account}),
                 % 分发给连接者
                 ss_server:dispatch({online, From}, S),
                 % 仅加入到living状态
@@ -205,7 +205,7 @@ invite(To, #{world:=W, db:=Db, id:=Id}=S) ->
                 New = Old#{<<"contacts">> => Contacts},
                 ok=Db:update(Id, New),
                 % 发送邀请
-                W:send(?offline, [invite, Account, To]),
+                W:cast(?offline, invite, [Account, To]),
                 % 保存邀请记录
                 save_invite(invite_to, Account, To, S),
                 {ok, S#{contacts=>Contacts}}
@@ -224,7 +224,7 @@ invite_from(TrackId, From, S) ->
 %% 接受联系人邀请
 invite_to_accept(TrackId, From,  #{world:=W, db:=Db, account:= Account, id:=Id}=S) ->
     force_login(fun() ->
-        W:send(?offline, [delete, TrackId]),
+        W:cast(?offline, delete, TrackId),
         Data = Db:find(Id),
         Contacts = maps:get(contacts, S, []),
         case lists:keymember(From, 1, Contacts) of
@@ -236,7 +236,7 @@ invite_to_accept(TrackId, From,  #{world:=W, db:=Db, account:= Account, id:=Id}=
                 New = [{From, #{rel=>double}}|Contacts],
                 ok=Db:update(Id, Data#{<<"contacts">> =>New}),
                 % 发送邀请通过的通知
-                W:send(?offline, [invite_accept, Account, From]),
+                W:cast(?offline, invite_accept, [Account, From]),
                 {ok, S#{contacts=>New}}
         end
     end, S).
@@ -244,7 +244,7 @@ invite_to_accept(TrackId, From,  #{world:=W, db:=Db, account:= Account, id:=Id}=
 %% 拒绝联系人邀请
 invite_to_refuse(TrackId, From,  #{world:=W, account:= Account}=S) ->
     force_login(fun() ->
-        W:send(?offline, [delete, TrackId]),
+        W:cast(?offline, delete, TrackId),
         Contacts = maps:get(contacts, S, []),
         case lists:keymember(From, 1, Contacts) of
             true -> {already_contact, S};
@@ -252,7 +252,7 @@ invite_to_refuse(TrackId, From,  #{world:=W, account:= Account}=S) ->
                 %erlang:display("to refuse ......"),
                 %erlang:display(From),
                 % 发送拒绝邀请的通知
-                W:send(?offline, [invite_refuse, Account, From]),
+                W:cast(?offline, invite_refuse, [Account, From]),
                 {ok, S}
         end
     end, S).
@@ -261,7 +261,7 @@ invite_to_refuse(TrackId, From,  #{world:=W, account:= Account}=S) ->
 invite_accept(TrackId, From, #{world:=W, db:=Db, id:=Id}=S) ->
     force_login(fun() ->
         Account = maps:get(account, S),
-        W:send(?offline, [delete, TrackId]),
+        W:cast(?offline, delete, TrackId),
         Data = Db:find(Id),
         Contacts = maps:get(contacts, S, []),
         case lists:keyfind(From, 1, Contacts) of
@@ -273,14 +273,14 @@ invite_accept(TrackId, From, #{world:=W, db:=Db, id:=Id}=S) ->
                 % 保存通知
                 save_invite(accept, From, Account, S),
                 % 清理
-                W:send(?offline, [delete, TrackId]),
+                W:cast(?offline, delete, TrackId),
                 %erlang:display("invite_confirm ......"),
                 %erlang:display(From),
                 % 更新联系人关系
                 New = lists:keyreplace(From, 1, Contacts, {From, #{rel=>double}}),
                 ok=Db:update(Id, Data#{<<"contacts">> =>New}),
                 % 发送在线通知
-                W:send({account, From}, [notify, {online, Account}]),
+                W:cast({account, From}, notify, {online, Account}),
                 {ok, S#{contacts=>New}}
         end
     end, S).
@@ -293,7 +293,7 @@ invite_refuse(TrackId, From, #{world:=W}=S) ->
         % 保存通知
         save_invite(refuse, From, maps:get(account, S), S),
         % 清理
-        W:send(?offline, [delete, TrackId]),
+        W:cast(?offline, delete, TrackId),
         {ok, S}
     end, S).
 
@@ -308,12 +308,12 @@ chat_to(Content, To, #{world:=W}=S) ->
                 Ref = make_ref(),
                 Pid = spawn(fun() ->
                     receive {confirm, Ref} -> ok
-                    after 1000 -> W:send(?offline, [chat_to, Content, Account, To]) end
+                    after 1000 -> W:cast(?offline, chat_to, [Content, Account, To]) end
                 end),
                 %% 发送消息
-                W:send({account, To}, [chat_from, {Pid, Ref}, Content, Account]);
+                W:cast({account, To}, chat_from, [{Pid, Ref}, Content, Account]);
             false ->
-                W:send(?offline, [chat_to, Content, Account, To])
+                W:cast(?offline, chat_to, [Content, Account, To])
         end,
         %% 保存发送记录
         save_chat(Content, Account, To, S),
@@ -324,7 +324,7 @@ chat_to(Content, To, #{world:=W}=S) ->
 chat_from(Confirm, Content, From, #{world:=W}=S) ->
     force_login(fun() ->
         %% 发送在线确认
-        W:send({account, From}, [chat_online_confirm, Confirm]),
+        W:cast({account, From}, chat_online_confirm, Confirm),
         %% 通知连接者
         ss_server:dispatch({chat_from, Content, From}, S),
         %% 保存接收记录
@@ -335,7 +335,7 @@ chat_from(Confirm, Content, From, #{world:=W}=S) ->
 %% 接收离线消息
 chat_offline(TrackId, Content, From, #{world:=W}=S) ->
     force_login(fun() ->
-        W:send(?offline, [delete, TrackId]),
+        W:cast(?offline, delete, TrackId),
         ss_server:dispatch({chat_offline, Content, From}, S),
         %% 保存接收记录
         save_chat(Content, From, maps:get(account, S), S),
