@@ -3,7 +3,8 @@
 -behaviour(gen_server).
 -export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([info/1, model/2, connect/2, connect/3, create/3, update/4, delete/2, find/2, all/1, drop/1]).
+-export([info/1, model/2, connect/2, connect/3]).
+-export([create/3, update/4, delete/2, find/2, all/1, drop/1]).
 -export([dispatch/2]).
 
 %% ss_server behaviour define ---------------------------------------
