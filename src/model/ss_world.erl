@@ -81,7 +81,7 @@ unreg(WN, PN)     -> gen_server:call(WN, {unreg, PN}).
 call(Action, {?MODULE, {WN, PN}}) when is_atom(Action) -> call(WN, PN, Action, []).
 %% call([Action|Args], {?MODULE, {WN, PN}}) -> call(WN, PN, Action, Args).
 call(Action, [Arg|Args], {?MODULE, {WN, PN}}) -> call(WN, PN, Action, [Arg|Args]);
-call(Action, Arg, {?MODULE, {WN, PN}}) -> call(WN, PN, Action, Arg).
+call(Action, Arg, {?MODULE, {WN, PN}}) -> call(WN, PN, Action, [Arg]).
 
 %% call handle_call in model process
 %%
