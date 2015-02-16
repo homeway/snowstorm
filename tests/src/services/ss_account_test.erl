@@ -199,6 +199,11 @@ account_test() ->
     ss:display(Zhu:call(notify_history)),
     ss:display(Zhu:call(chat_history)),
 
+    %% custom account with oop style
+    Zhuhao = {account, "zhuhao"},
+    Custom1 = W:reg_server({account, custom1}, [my_account, ss_account], [#{db=>Db}]),
+    ?assertEqual({custom, not_login}, Custom1:call(who)),
+
     finish(W).
 
 %% 如果没有任何消息就停顿100毫秒再确定消息已清除
