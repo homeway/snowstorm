@@ -51,26 +51,28 @@ start_link(WorldName) -> gen_server:start_link({local, WorldName}, ?MODULE, [Wor
 %% 注册普通进程到ss_world
 %% World:reg(ProcessName, Module).
 %% World:reg(ProcessName, Module, Args).
-reg(PN, Mod, {?MODULE, WN}) -> reg(WN, PN, Mod);
+reg(PN, Mod, {?MODULE, WN}) -> reg(WN, PN, Mod, []);
 reg(WN, PN, Mod) -> reg(WN, PN, Mod, []).
 
 reg(PN, Mod, Args, {?MODULE, WN}) -> reg(WN, PN, Mod, Args);
-reg(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
-    gen_server:call(WN, {reg, PN, Mod, Args}).
+reg(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) -> gen_server:call(WN, {reg, PN, Mod, Args}).
 
 %% 注册ss_server类型的进程到ss_world
 %% World:reg_server(ProcessName, Module).
 %% World:reg_server(ProcessName, Module, Args).
-reg_server(PN, Mod, {?MODULE, WN}) -> reg_server(WN, PN, Mod);
-reg_server(WN, PN, Mod) -> reg_server(WN, PN, Mod, []).
+%% World:reg_server(ProcessName, [Module0, Module1], Args).
+reg_server(PN, Mod, {?MODULE, WN}) when is_atom(Mod) -> gen_server:call(WN, {reg, PN, ss_server, [[Mod], []]});
+reg_server(WN, PN, Mod)            when is_atom(Mod) -> gen_server:call(WN, {reg, PN, ss_server, [[Mod], []]}).
 
-reg_server(PN, Mod, Args, {?MODULE, WN}) -> reg_server(WN, PN, Mod, Args);
-reg_server(WN, PN, Mod, Args) when is_atom(Mod) and is_list(Args) ->
-    gen_server:call(WN, {reg, PN, ss_server, [[Mod|Args]]}).
+reg_server(PN, Mod, Args, {?MODULE, WN}) when is_atom(Mod) -> gen_server:call(WN, {reg, PN, ss_server, [[Mod], Args]});
+reg_server(WN, PN, Mod, Args)            when is_atom(Mod) -> gen_server:call(WN, {reg, PN, ss_server, [[Mod], Args]});
+
+reg_server(PN, Mods, Args, {?MODULE, WN}) when is_list(Mods) -> gen_server:call(WN, {reg, PN, ss_server, [Mods, Args]});
+reg_server(WN, PN, Mods, Args)            when is_list(Mods) -> gen_server:call(WN, {reg, PN, ss_server, [Mods, Args]}).
 
 %% World:info(ProcessName).
-info(PN, {?MODULE, WN}) -> info(WN, PN);
-info(WN, PN)      -> gen_server:call(WN, {info,  PN}).
+info(PN, {?MODULE, WN}) -> gen_server:call(WN, {info,  PN});
+info(WN, PN)            -> gen_server:call(WN, {info,  PN}).
 
 %% World:unreg(ProcessName).
 unreg(PN, {?MODULE, WN}) -> unreg(WN, PN);
@@ -129,15 +131,15 @@ cast(WN, PN, Action, [Msg|Msgs]) -> gen_server:cast(WN, {cast,  PN, Action, [Msg
 cast(WN, PN, Action, Msg) -> gen_server:cast(WN, {cast,  PN, Action, [Msg]}).
 
 %% start the models supervisor after the world start
-init([World|[]]) ->
+init([World]) ->
     Str = io_lib:format("~p_sup", [World]),
     WorldSup = list_to_atom(lists:flatten(Str)),
     ss_server_sup:start_link(WorldSup),
     {ok, #{world=>ss:world(World), world_sup=>WorldSup}}.
 
-%% reg model process with a uniq name
-handle_call({reg, Name, Mod, [Args]}, _From, #{world:=World, world_sup:=WorldSup}=S0) ->
-    Reply = case ss_server_sup:start_child(WorldSup, Name, Mod, [[World|Args]]) of
+%% reg world process with a uniq name
+handle_call({reg, Name, Mod, Args}, _From, #{world:=World, world_sup:=WorldSup}=S0) ->
+    Reply = case ss_server_sup:start_child(WorldSup, Name, Mod, [World|Args]) of
         {ok, Pid} when is_pid(Pid) ->
             {?MODULE, WN} = World,
             {?MODULE, {WN, Name}};

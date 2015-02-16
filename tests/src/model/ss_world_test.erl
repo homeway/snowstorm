@@ -13,12 +13,12 @@ to_test() ->
     %% 注册一个ss_server
     P1 = test_user1,
     P2 = test_user2,
-    W:reg_server(P1, ss_user2),
+    W:reg(P1, ss_user1),
     ?assertEqual(true, is_pid(W:find(P1))),
     ?assertEqual(not_reg, W:find(P2)),
 
     %% regss ss_user2
-    W:reg_server(P2, ss_user2),
+    W:reg(P2, ss_user1),
     ?assertEqual(true, is_pid(W:find(P2))),
 
     %% return all
@@ -31,8 +31,11 @@ to_test() ->
     %% get process info
     ?assertMatch([{current_function,_}|_], W:info(P1)),
 
+    %% call process
+    ?assertMatch(#{}, W:call(P1, hello)),
+
     %% call wolrd in ss_server
-    ?assertMatch([{current_function,_}|_], W:call(P1, known_world, [P1])),
+    ?assertMatch([{current_function,_}|_], W:call(P1, known_world, P1)),
 
     %% destroy the world to clean all process
     W:destroy(),

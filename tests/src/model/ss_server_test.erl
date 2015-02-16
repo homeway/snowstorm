@@ -2,7 +2,7 @@
 -module(ss_server_test).
 -include_lib("eunit/include/eunit.hrl").
 
-to_test() ->
+world_test() ->
     %% 启动world
     World = ss:world(to_test_ss_server),
     World:start(),
@@ -10,6 +10,7 @@ to_test() ->
     ?assertEqual([], World:all()),
 
     %% reg a res server
+    erlang:display({"world process:", World}),
     Users = World:reg_server(res_to_test, ss_user2),
 
     %% call info

@@ -16,7 +16,7 @@ prepare() ->
     %% resource server: {res, account}
     Db = ss:nosqlite(ss_account_test_data),
     Res = {res, account},
-    Accounts = W:reg_server(Res, ss_account, [#{db=>Db}]),
+    Accounts = W:reg_server(Res, [{ss_account, [#{db=>Db}]}]),
 
     {W, Accounts, Res, Db}.
 
@@ -31,7 +31,7 @@ account_test() ->
     ?assertEqual(true, is_pid(W:find(Res))),
 
     %% service server: {service, offline}
-    W:reg_server(?offline, ss_offline, [#{db=>ss:nosqlite(ss_account_test_offline)}]),
+    W:reg_server(?offline, [{ss_offline, [#{db=>ss:nosqlite(ss_account_test_offline)}]}]),
     ?assertEqual(true, is_pid(W:find(?offline))),
     %?assertEqual(ok, W:call(?offline, drop)),
     % erlang:display("world info >>>>>>>>>"),
@@ -60,7 +60,7 @@ account_test() ->
     D2 = #{account => "adi", password => "123456", contacts => [{"yifan", #{rel=>double}}]},
     {ok, Id2} = W:call(Res, create, [D2, M2]),
     W:call(Res, find, [Id2]),
-    W:reg_server(Adi, ss_account, [#{db=>Db}]),
+    W:reg_server(Adi, [{ss_account, [#{db=>Db}]}]),
     W:call(Adi, connect, self()),
     ?assertMatch(not_login, W:call(Adi, status, [])),
     ?assertMatch(ok, W:call(Adi, login, ["adi", "123456"])),
@@ -74,7 +74,7 @@ account_test() ->
     ?assertMatch(ok, W:call(Res, update, [Id1, D3, M3])),
 
     %% 出席
-    W:reg_server(Yifan, ss_account, [#{db=>Db}]),
+    W:reg_server(Yifan, [{ss_account, [#{db=>Db}]}]),
     W:call(Yifan, connect, self()),
     ?assertMatch(not_login, W:call(Yifan, contacts)),
     ?assertMatch(ok, W:call(Yifan, login, ["yifan", "123456"])),
@@ -95,7 +95,7 @@ account_test() ->
     Homeway = {account, "homeway"},
     D4 = #{account => "homeway", password => "123456"},
     ?assertMatch({ok, _}, W:call(Res, create, [D4, M1])),
-    W:reg_server(Homeway, ss_account, [#{db=>Db}]),
+    W:reg_server(Homeway, [{ss_account, [#{db=>Db}]}]),
     ?assertMatch(ok, W:call(Homeway, login, ["homeway", "123456"])),
 
     %% homeway添加adi为联系人，双方在线
@@ -123,7 +123,7 @@ account_test() ->
                  {"yifan", #{rel=>double, status=>"online"}}],
     ?assertEqual(Contacts6, W:call(Adi, contacts)),
     %% wenxuan登录后
-    W:reg_server(Wenxuan, ss_account, [#{db=>Db}]),
+    W:reg_server(Wenxuan, [{ss_account, [#{db=>Db}]}]),
     W:call(Wenxuan, connect, [self()]),
     clear_msg(),
     ?assertMatch(ok, W:call(Wenxuan, login, ["wenxuan", "123456"])),
@@ -147,7 +147,7 @@ account_test() ->
     Xiaojie = {account, "xiaojie"},
     D8 = #{account => "xiaojie", password => "123456"},
     ?assertMatch({ok, _}, W:call(Res, create, [D8, M1])),
-    W:reg_server(Xiaojie, ss_account, [#{db=>Db}]),
+    W:reg_server(Xiaojie, [{ss_account, [#{db=>Db}]}]),
     W:call(Xiaojie, connect, [self()]),
     ?assertMatch(ok, W:call(Xiaojie, login, ["xiaojie", "123456"])),
     clear_msg(),
@@ -162,7 +162,7 @@ account_test() ->
     Zhuhao = {account, "zhuhao"},
     D9 = #{account => "zhuhao", password => "123456"},
     ?assertMatch({ok, _}, W:call(Res, create, [D9, M1])),
-    Zhu = W:reg_server(Zhuhao, ss_account, [#{db=>Db}]),
+    Zhu = W:reg_server(Zhuhao, [{ss_account, [#{db=>Db}]}]),
     Zhu:call(connect, [self(), fun(Msg) -> {server, Msg} end]),
     %% xiaoije邀请zhuhao为好友, 然后离线
     ?assertEqual(ok, W:call(Xiaojie, invite, ["zhuhao"])),
@@ -173,7 +173,7 @@ account_test() ->
     {server, {invite_from, TrackId9, From9}} = got_msg(),
     ?assertEqual(ok, Zhu:call(invite_to_accept, [TrackId9, From9])),
     %% xiaojie重新登录, 应仍能正确获得联系人状态
-    W:reg_server(Xiaojie, ss_account, [#{db=>Db}]),
+    W:reg_server(Xiaojie, [{ss_account, [#{db=>Db}]}]),
     ?assertMatch(ok, W:call(Xiaojie, login, ["xiaojie", "123456"])),
     receive nothing -> wait after 100 -> ok end,
     Contacts9 = [{"zhuhao", #{rel=>double, status=>"online"}}],
